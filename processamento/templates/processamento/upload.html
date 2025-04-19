@@ -1,0 +1,160 @@
+{% extends 'processamento/base.html' %}
+
+{% block title %}Upload de Arquivos{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Upload de Arquivos</h2>
+    
+    <div class="row mt-4">
+        <!-- Upload de Arquivos -->
+        <div class="col-md-12 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Upload de Arquivos</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="arquivo" class="form-label">Selecione o arquivo:</label>
+                                    <input type="file" class="form-control" id="arquivo" name="arquivo" accept=".xlsx,.xls">
+                                </div>
+                            </div>
+                            <div class="col-md-6 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary">Upload</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Processar Regras e Exportar Base -->
+        <div class="col-md-12">
+            <div class="row">
+                <!-- Processar Regras -->
+                <div class="col-md-6 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">Processar Regras de Negócio</h5>
+                        </div>
+                        <div class="card-body">
+                            <p>Clique no botão abaixo para processar as regras de negócio definidas no sistema.</p>
+                            <form id="regrasForm" method="post">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-warning" name="processar_regras">
+                                    <i class="bi bi-gear"></i> Processar Regras
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Exportar Base -->
+                <div class="col-md-6 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">Exportar Base Consolidada</h5>
+                        </div>
+                        <div class="card-body">
+                            <p>Clique no botão abaixo para exportar a base consolidada para Excel.</p>
+                            <a href="{% url 'exportar_base_excel' %}" class="btn btn-success">
+                                <i class="bi bi-download"></i> Exportar Base
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Progresso -->
+<div class="modal fade" id="progressModal" tabindex="-1" aria-labelledby="progressModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="progressModalLabel">Processando...</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="progress">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
+                </div>
+                <div id="progressMessage" class="mt-2">Processando regras de negócio...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Formulário de upload
+    $('#uploadForm').on('submit', function(e) {
+        e.preventDefault();
+        var formData = new FormData(this);
+        
+        $.ajax({
+            url: '',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            beforeSend: function() {
+                $('#progressModal').modal('show');
+            },
+            success: function(response) {
+                if (response.success) {
+                    location.reload();
+                } else {
+                    alert(response.message || 'Erro ao processar arquivo');
+                }
+            },
+            error: function(xhr) {
+                alert('Erro ao processar arquivo: ' + xhr.responseJSON.message);
+            },
+            complete: function() {
+                $('#progressModal').modal('hide');
+            }
+        });
+    });
+    
+    // Formulário de regras
+    $('#regrasForm').on('submit', function(e) {
+        e.preventDefault();
+        var formData = new FormData(this);
+        formData.append('processar_regras', 'true');
+        
+        $.ajax({
+            url: '',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            beforeSend: function() {
+                $('#progressModal').modal('show');
+            },
+            success: function(response) {
+                if (response.success) {
+                    location.reload();
+                } else {
+                    alert('Erro ao processar regras de negócio');
+                }
+            },
+            error: function() {
+                alert('Erro ao processar regras de negócio');
+            },
+            complete: function() {
+                $('#progressModal').modal('hide');
+            }
+        });
+    });
+});
+</script>
+{% endblock %} 

@@ -1,0 +1,10 @@
+.git
+.gitignore
+.env
+*.pyc
+__pycache__
+*.sqlite3
+*.log
+data/
+media/
+.DS_Store 

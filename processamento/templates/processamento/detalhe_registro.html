@@ -1,0 +1,166 @@
+{% extends 'processamento/base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+    .info-section {
+        margin-bottom: 2rem;
+    }
+    .info-section h6 {
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #dee2e6;
+    }
+    .table-sm td:first-child {
+        width: 30%;
+        font-weight: 500;
+        white-space: nowrap;
+    }
+    .table-sm td {
+        text-align: left;
+        vertical-align: middle;
+    }
+    .table-sm td:last-child {
+        width: 70%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .card {
+        margin-bottom: 1.5rem;
+    }
+    .nav-tabs .nav-link {
+        color: #495057;
+    }
+    .nav-tabs .nav-link.active {
+        font-weight: 500;
+    }
+
+    /* Estilos para tags de dias_carteira */
+    .dias-carteira {
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        font-weight: 500;
+    }
+    .dias-carteira.alerta {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    .dias-carteira.critico {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+</style>
+{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'revisao' %}">Pedidos</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Detalhes do Pedido</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">Detalhes do Pedido: {{ registro.pedido }}</h5>
+            
+            <ul class="nav nav-tabs" id="myTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="basicas-tab" data-bs-toggle="tab" data-bs-target="#basicas" type="button" role="tab" aria-controls="basicas" aria-selected="true">Informações Básicas</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tecnicas-tab" data-bs-toggle="tab" data-bs-target="#tecnicas" type="button" role="tab" aria-controls="tecnicas" aria-selected="false">Informações Técnicas</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="draft-rede-tab" data-bs-toggle="tab" data-bs-target="#draft-rede" type="button" role="tab" aria-controls="draft-rede" aria-selected="false">Draft e Rede</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="adicionais-tab" data-bs-toggle="tab" data-bs-target="#adicionais" type="button" role="tab" aria-controls="adicionais" aria-selected="false">Informações Adicionais</button>
+                </li>
+            </ul>
+            
+            <div class="tab-content" id="myTabContent">
+                <!-- Informações Básicas -->
+                <div class="tab-pane fade show active" id="basicas" role="tabpanel" aria-labelledby="basicas-tab">
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <table class="table table-sm">
+                                <tr><td>Pedido:</td><td>{{ registro.pedido|default:"-" }}</td></tr>
+                                <tr><td>Cliente:</td><td>{{ registro.cliente|default:"-" }}</td></tr>
+                                <tr><td>Cidade:</td><td>{{ registro.cidade|default:"-" }}</td></tr>
+                                <tr><td>Esteira:</td><td>{{ registro.esteira|default:"-" }}</td></tr>
+                                <tr><td>Esteira Regionalizada:</td><td>{{ registro.esteira_regionalizada|default:"-" }}</td></tr>
+                                <tr><td>Segmento Resumo:</td><td>{{ registro.seg_resumo|default:"-" }}</td></tr>
+                                <tr><td>Produto:</td><td>{{ registro.produto|default:"-" }}</td></tr>
+                                <tr><td>Serviço:</td><td>{{ registro.servico|default:"-" }}</td></tr>
+                                <tr><td>Classificação:</td><td>{{ registro.classificacao|default:"-" }}</td></tr>
+                                <tr><td>Cadeia Pendências:</td><td>{{ registro.cadeia_pendencias_descricao|default:"-" }}</td></tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Informações Técnicas -->
+                <div class="tab-pane fade" id="tecnicas" role="tabpanel" aria-labelledby="tecnicas-tab">
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <table class="table table-sm">
+                                <tr><td>Carteira:</td><td>{{ registro.carteira|default:"-" }}</td></tr>
+                                <tr><td>OSX:</td><td>{{ registro.osx|default:"-" }}</td></tr>
+                                <tr><td>Motivo PTA:</td><td>{{ registro.motivo_pta_cod|default:"-" }}</td></tr>
+                                <tr><td>SPE:</td><td>{{ registro.wcd|default:"-" }}</td></tr>
+                                <tr><td>ETP:</td><td>{{ registro.num_atp|default:"-" }}</td></tr>
+                                <tr><td>Delta Rec Liq:</td><td>{{ registro.delta_rec_liq|default:"-" }}</td></tr>
+                                <tr><td>Aging Resumo:</td><td>{{ registro.aging_resumo|default:"-" }}</td></tr>
+                                <tr><td>Origem Pendência:</td><td>{{ registro.origem_pend|default:"-" }}</td></tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Draft e Rede -->
+                <div class="tab-pane fade" id="draft-rede" role="tabpanel" aria-labelledby="draft-rede-tab">
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <h6 class="text-start">Draft</h6>
+                            <table class="table table-sm">
+                                <tr><td>Draft Encontrado:</td><td>{{ registro.draft_encontrado|default:"-" }}</td></tr>
+                                <tr><td>Data Criação Draft:</td><td>{{ registro.data_criacao_draft|default:"-" }}</td></tr>
+                                <tr><td>Tarefa Atual Draft:</td><td>{{ registro.tarefa_atual_draft|default:"-" }}</td></tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-start">Rede</h6>
+                            <table class="table table-sm">
+                                <tr><td>Status Rede:</td><td>{{ registro.status_rede|default:"-" }}</td></tr>
+                                <tr><td>EPS Rede:</td><td>{{ registro.eps_rede|default:"-" }}</td></tr>
+                                <tr><td>Data Rede:</td><td>{{ registro.data_rede|default:"-" }}</td></tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Informações Adicionais -->
+                <div class="tab-pane fade" id="adicionais" role="tabpanel" aria-labelledby="adicionais-tab">
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <table class="table table-sm">
+                                <tr><td>Data Técnica:</td><td>{{ registro.data_tecnica|default:"-" }}</td></tr>
+                                <tr><td>Dias Carteira:</td><td>{{ registro.dias_carteira_atual|default:"-" }}</td></tr>
+                                <tr><td>TM Técnico Total:</td><td>{{ registro.tm_tec_total|default:"-" }}</td></tr>
+                                <tr><td>Estimativa:</td><td>{{ registro.estimativa|default:"-" }}</td></tr>
+                                <tr><td>Pendência Macro:</td><td>{{ registro.pendencia_macro|default:"-" }}</td></tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

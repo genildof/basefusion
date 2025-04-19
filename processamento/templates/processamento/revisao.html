@@ -1,0 +1,443 @@
+{% extends 'processamento/base.html' %}
+{% load static %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Pedidos</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css"/>
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.2.2/css/buttons.bootstrap5.min.css"/>
+<style>
+    .filters-container {
+        margin-bottom: 20px;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+    }
+    .modal-lg {
+        max-width: 80%;
+    }
+    .navbar-brand {
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+    .table-responsive {
+        width: 100%;
+        margin-bottom: 1rem;
+        overflow-x: auto;
+    }
+    .table {
+        min-width: 800px;
+    }
+    .table th, .table td {
+        text-align: center;
+        vertical-align: middle;
+    }
+    .table th:nth-child(1) { width: 15%; } /* Pedido */
+    .table th:nth-child(2) { width: 10%; } /* Dias Carteira */
+    .table th:nth-child(3) { width: 15%; } /* Data Técnica */
+    .table th:nth-child(4) { width: 15%; } /* Carteira */
+    .table th:nth-child(5) { width: 15%; } /* Pendência Macro */
+    .table th:nth-child(6) { width: 15%; } /* Estimativa */
+    .table th:nth-child(7) { width: 15%; } /* Segmento V3 */
+    
+    .segmento-card {
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    .segmento-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .segmento-card.active {
+        background-color: #e9ecef;
+        border-color: #0d6efd;
+    }
+    
+    .dataTables_filter {
+        margin-bottom: 1rem;
+    }
+    .dataTables_filter input {
+        width: 300px !important;
+    }
+
+    /* Estilos para tags de dias_carteira */
+    .dias-carteira {
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        font-weight: 500;
+    }
+    .dias-carteira.alerta {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    .dias-carteira.critico {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+
+    /* Estilos para o combo de filtros */
+    .filtro-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+    .filtro-container h5 {
+        margin: 0;
+    }
+    .filtro-select {
+        width: 200px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Filtro de Tipo -->
+    <div class="filtro-container">
+        <h5>Pedidos</h5>
+        <select class="form-select filtro-select" id="tipoFiltro">
+            <option value="revisar">Pedidos a Revisar</option>
+            <option value="tecnica">Técnica</option>
+            <option value="todos">Todos</option>
+        </select>
+    </div>
+
+    <!-- Cards de Segmentos -->
+    <div class="row mb-4" id="segmentosCards">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Segmentos</h5>
+                    <div class="d-flex flex-wrap gap-2" id="segmentosContainer">
+                        <!-- Cards serão inseridos aqui via JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tabela -->
+    <div class="table-responsive">
+        <table id="tabelaRevisao" class="table table-striped table-bordered">
+            <thead>
+                <tr>
+                    <th>Pedido</th>
+                    <th>Dias Carteira</th>
+                    <th>Data Técnica</th>
+                    <th>Carteira</th>
+                    <th>Pendência Macro</th>
+                    <th>Estimativa</th>
+                    <th>Segmento V3</th>
+                </tr>
+            </thead>
+        </table>
+    </div>
+</div>
+
+<!-- Modal de Detalhes -->
+<div class="modal fade" id="detailsModal" tabindex="-1" aria-labelledby="detailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="detailsModalLabel">Detalhes do Registro</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Informações Básicas</h6>
+                        <table class="table table-sm">
+                            <tr><td>Pedido:</td><td id="pedido">-</td></tr>
+                            <tr><td>Cliente:</td><td id="cliente">-</td></tr>
+                            <tr><td>Cidade:</td><td id="cidade">-</td></tr>
+                            <tr><td>Esteira:</td><td id="esteira">-</td></tr>
+                            <tr><td>Esteira Regionalizada:</td><td id="esteira_regionalizada">-</td></tr>
+                            <tr><td>Segmento Resumo:</td><td id="seg_resumo">-</td></tr>
+                            <tr><td>Produto:</td><td id="produto">-</td></tr>
+                            <tr><td>Serviço:</td><td id="servico">-</td></tr>
+                            <tr><td>Classificação:</td><td id="classificacao_resumo_atual">-</td></tr>
+                            <tr><td>Cadeia Pendências:</td><td id="cadeia_pendencias_descricao">-</td></tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Informações Técnicas</h6>
+                        <table class="table table-sm">
+                            <tr><td>Carteira:</td><td id="carteira">-</td></tr>
+                            <tr><td>Dias Carteira:</td><td id="dias_carteira_atual">-</td></tr>
+                            <tr><td>Data Técnica:</td><td id="data_tecnica">-</td></tr>
+                            <tr><td>OSX:</td><td id="osx">-</td></tr>
+                            <tr><td>Motivo PTA:</td><td id="motivo_pta_cod">-</td></tr>
+                            <tr><td>WCD:</td><td id="wcd">-</td></tr>
+                            <tr><td>TM Técnico Total:</td><td id="tm_tec_total">-</td></tr>
+                            <tr><td>Delta Rec Liq:</td><td id="delta_rec_liq">-</td></tr>
+                            <tr><td>Aging Resumo:</td><td id="aging_resumo">-</td></tr>
+                            <tr><td>Origem Pendência:</td><td id="origem_pend">-</td></tr>
+                        </table>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <h6>Informações de Rede</h6>
+                        <table class="table table-sm">
+                            <tr><td>Status Rede:</td><td id="status_rede">-</td></tr>
+                            <tr><td>EPS Rede:</td><td id="eps_rede">-</td></tr>
+                            <tr><td>Data Rede:</td><td id="data_rede">-</td></tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Informações Adicionais</h6>
+                        <table class="table table-sm">
+                            <tr><td>Draft Encontrado:</td><td id="draft_encontrado">-</td></tr>
+                            <tr><td>Data Criação Draft:</td><td id="data_criacao_draft">-</td></tr>
+                            <tr><td>Tarefa Atual Draft:</td><td id="tarefa_atual_draft">-</td></tr>
+                            <tr><td>Tipo Entrega:</td><td id="tipo_entrega">-</td></tr>
+                            <tr><td>Data SAE:</td><td id="data_sae">-</td></tr>
+                        </table>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <h6>Status Macro</h6>
+                        <table class="table table-sm">
+                            <tr><td>Pendência Macro:</td><td id="pendencia_macro">-</td></tr>
+                            <tr><td>Estimativa:</td><td id="estimativa">-</td></tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script type="text/javascript" src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
+<script>
+    let table;
+    let segmentoAtivo = '';
+    let tipoFiltro = 'revisar';
+
+    // Função para obter o token CSRF
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // Função para formatar dias_carteira com tags
+    function formatarDiasCarteira(dias) {
+        if (dias === null || dias === undefined || dias === '-') return '-';
+        
+        const diasNum = parseInt(dias);
+        if (isNaN(diasNum)) return dias;
+        
+        let classe = '';
+        if (diasNum >= 14) {
+            classe = 'critico';
+        } else if (diasNum >= 7) {
+            classe = 'alerta';
+        }
+        
+        return `<span class="dias-carteira ${classe}">${dias}</span>`;
+    }
+
+    $(document).ready(function() {
+        const csrftoken = getCookie('csrftoken');
+        let table;
+        let segmentoAtivo = '';
+        let tipoFiltro = 'revisar';
+
+        // Evento de mudança no combo de filtros
+        $('#tipoFiltro').change(function() {
+            tipoFiltro = $(this).val();
+            carregarSegmentos();
+            table.ajax.reload();
+        });
+
+        function carregarSegmentos() {
+            const tipo = $('#tipoFiltro').val();
+            $.ajax({
+                url: '/revisao/segmentos/',
+                data: { tipo: tipo },
+                success: function(response) {
+                    const container = $('#segmentosContainer');
+                    container.empty();
+                    
+                    // Adicionar card "Todos"
+                    const cardTodos = $(`
+                        <div class="card segmento-card active" style="width: 200px;">
+                            <div class="card-body">
+                                <h6 class="card-title">Todos</h6>
+                                <p class="card-text">${response.total_geral || 0} pedidos</p>
+                            </div>
+                        </div>
+                    `);
+                    
+                    cardTodos.click(function() {
+                        $('.segmento-card').removeClass('active');
+                        $(this).addClass('active');
+                        segmentoAtivo = '';
+                        table.ajax.reload();
+                    });
+                    
+                    container.append(cardTodos);
+                    
+                    response.segmentos.forEach(function(segmento) {
+                        const card = $(`
+                            <div class="card segmento-card" style="width: 200px;">
+                                <div class="card-body">
+                                    <h6 class="card-title">${segmento.segmento}</h6>
+                                    <p class="card-text">${segmento.total} pedidos</p>
+                                </div>
+                            </div>
+                        `);
+                        
+                        card.click(function() {
+                            $('.segmento-card').removeClass('active');
+                            $(this).addClass('active');
+                            segmentoAtivo = segmento.segmento;
+                            table.ajax.reload();
+                        });
+                        
+                        container.append(card);
+                    });
+                }
+            });
+        }
+        
+        function inicializarTabela() {
+            table = $('#tabelaRevisao').DataTable({
+                processing: true,
+                serverSide: true,
+                ajax: {
+                    url: '{% url "revisao_data" %}',
+                    type: 'GET',
+                    data: function(d) {
+                        d.segmento = segmentoAtivo;
+                        d.tipo = tipoFiltro;
+                    }
+                },
+                columns: [
+                    {data: 'pedido', name: 'pedido', render: function(data, type, row) {
+                        return `<a href="/revisao/registro/${data}/">${data}</a>`;
+                    }},
+                    {data: 'dias_carteira_atual', name: 'dias_carteira_atual', render: function(data, type, row) {
+                        return formatarDiasCarteira(data);
+                    }},
+                    {data: 'data_tecnica', name: 'data_tecnica'},
+                    {data: 'carteira', name: 'carteira'},
+                    {data: 'pendencia_macro', name: 'pendencia_macro'},
+                    {data: 'estimativa', name: 'estimativa'},
+                    {data: 'segmento_v3', name: 'segmento_v3'}
+                ],
+                language: {
+                    url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/pt-BR.json'
+                },
+                order: [[0, 'desc']],
+                pageLength: 25,
+                responsive: true,
+                dom: '<"top"lf>rt<"bottom"ip>',
+                lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]]
+            });
+        }
+
+        carregarSegmentos();
+        inicializarTabela();
+        
+        // Função para visualizar detalhes
+        function viewDetails(pedido) {
+            const csrftoken = getCookie('csrftoken');
+            const url = `{% url 'get_registro_detalhes' pedido='0000000' %}`.replace('0000000', pedido);
+            
+            $.ajax({
+                url: url,
+                type: 'GET',
+                headers: {
+                    'X-CSRFToken': csrftoken
+                },
+                success: function(response) {
+                    if (response.success) {
+                        const registro = response.registro;
+                        
+                        // Informações Básicas
+                        $('#pedido').text(registro.pedido || '-');
+                        $('#cliente').text(registro.cliente || '-');
+                        $('#cidade').text(registro.cidade || '-');
+                        $('#esteira').text(registro.esteira || '-');
+                        $('#esteira_regionalizada').text(registro.esteira_regionalizada || '-');
+                        $('#seg_resumo').text(registro.seg_resumo || '-');
+                        $('#produto').text(registro.produto || '-');
+                        $('#servico').text(registro.servico || '-');
+                        $('#classificacao_resumo_atual').text(registro.classificacao || '-');
+                        $('#cadeia_pendencias_descricao').text(registro.cadeia_pendencias_descricao || '-');
+                        $('#carteira').text(registro.carteira || '-');
+                        $('#dias_carteira_atual').html(formatarDiasCarteira(registro.dias_carteira_atual));
+                        $('#data_tecnica').text(registro.data_tecnica || '-');
+                        $('#osx').text(registro.osx || '-');
+                        $('#motivo_pta_cod').text(registro.motivo_pta_cod || '-');
+                        $('#wcd').text(registro.num_wcd || '-');
+                        
+                        // Informações Técnicas
+                        $('#tm_tec_total').text(registro.tm_tec_total || '-');
+                        $('#delta_rec_liq').text(registro.delta_rec_liq || '-');
+                        $('#aging_resumo').text(registro.aging_resumo || '-');
+                        $('#origem_pend').text(registro.origem_pend || '-');
+                        $('#segmento_v3').text(registro.segmento_v3 || '-');
+                        $('#sla_tecnica').text(registro.sla_tecnica || '-');
+                        $('#quebra_esteira').text(registro.quebra_esteira || '-');
+                        $('#projetos').text(registro.projetos || '-');
+                        $('#projetos_lote').text(registro.projetos_lote || '-');
+                        $('#tecnologia_report').text(registro.tecnologia_report || '-');
+                        
+                        // Informações Adicionais
+                        $('#draft_encontrado').text(registro.draft_encontrado || '-');
+                        $('#data_criacao_draft').text(registro.data_criacao_draft || '-');
+                        $('#tarefa_atual_draft').text(registro.tarefa_atual_draft || '-');
+                        $('#status_rede').text(registro.status_rede || '-');
+                        $('#eps_rede').text(registro.eps_rede || '-');
+                        $('#data_rede').text(registro.data_rede || '-');
+                        $('#tipo_entrega').text(registro.tipo_entrega || '-');
+                        $('#data_sae').text(registro.data_sae || '-');
+                        
+                        // Status Macro
+                        $('#pendencia_macro').text(registro.pendencia_macro || '-');
+                        $('#estimativa').text(registro.estimativa || '-');
+                        
+                        // Inicializar e mostrar o modal
+                        const modalElement = document.getElementById('detailsModal');
+                        const modal = new bootstrap.Modal(modalElement);
+                        modal.show();
+                    } else {
+                        alert(response.message || 'Erro ao carregar detalhes do registro');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Erro:', error);
+                    alert('Erro ao carregar detalhes do registro');
+                }
+            });
+        }
+    });
+</script>
+{% endblock %} 

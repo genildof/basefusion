@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./media:/app/media
+    environment:
+      - DEBUG=False
+      - ALLOWED_HOSTS=*
+      - DATABASE_URL=sqlite:///data/db.sqlite3
+      - SECRET_KEY=${SECRET_KEY}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3 

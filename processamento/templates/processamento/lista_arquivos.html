@@ -1,0 +1,43 @@
+{% extends 'processamento/base.html' %}
+
+{% block title %}Arquivos Processados{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Arquivos Processados</h3>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Nome do Arquivo</th>
+                                <th>Tipo</th>
+                                <th>Usuário</th>
+                                <th>Data/Hora</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for arquivo in arquivos %}
+                            <tr>
+                                <td>{{ arquivo.nome }}</td>
+                                <td>{{ arquivo.get_tipo_arquivo_display }}</td>
+                                <td>{{ arquivo.usuario.username }}</td>
+                                <td>{{ arquivo.data_processamento|date:"d/m/Y H:i" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center">Nenhum arquivo processado encontrado.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
