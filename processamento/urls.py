@@ -11,11 +11,16 @@ urlpatterns = [
     path('revisao/segmentos/', views.revisao_segmentos, name='revisao_segmentos'),
     path('revisao/registro/<str:pedido>/', views.detalhe_revisao, name='detalhe_revisao'),
     path('revisao/registro/<str:pedido>/detalhes/', views.get_registro_detalhes, name='get_registro_detalhes'),
-    path('base-consolidada/', views.BaseConsolidadaView.as_view(), name='base_consolidada'),
-    path('base-consolidada/data/', views.base_consolidada_data, name='base_consolidada_data'),
-    path('base-consolidada/registro/<str:pedido>/', views.detalhe_registro, name='detalhe_registro'),
-    path('base-consolidada/registro/<str:pedido>/revisar/', views.revisar_registro, name='revisar_registro'),
-    path('base-consolidada/registro/<str:pedido>/confirmar/', views.confirmar_revisao, name='confirmar_revisao'),
-    path('base-consolidada/registro/<str:pedido>/rejeitar/', views.rejeitar_revisao, name='rejeitar_revisao'),
-    path('base-consolidada/registro/<str:pedido>/detalhes/', views.get_registro_detalhes_base, name='get_registro_detalhes_base'),
+    path('revisao/registro/<str:pedido>/atualizar-pendencia/', views.atualizar_pendencia_macro, name='atualizar_pendencia_macro'),
+    path('revisao/exportar/', views.exportar_revisao_excel, name='exportar_revisao_excel'),
+    path('api/arquivo-detalhes/<int:arquivo_id>/', views.arquivo_detalhes, name='arquivo_detalhes'),
+    
+    # Rotas para gerenciamento de usuários
+    path('usuarios/', views.lista_usuarios, name='lista_usuarios'),
+    path('usuarios/adicionar/', views.criar_usuario, name='criar_usuario'),
+    path('usuarios/editar/<int:pk>/', views.editar_usuario, name='editar_usuario'),
+    path('usuarios/excluir/<int:pk>/', views.excluir_usuario, name='excluir_usuario'),
+    
+    # Rota de logout personalizada que aceita GET
+    path('logout/', views.custom_logout, name='custom_logout'),
 ] 

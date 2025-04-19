@@ -4,23 +4,38 @@ FROM python:3.9-slim
 RUN apt-get update && apt-get install -y \
     build-essential \
     libpq-dev \
-    git \
+    curl \
     && rm -rf /var/lib/apt/lists/*
+
+# Definir variáveis de ambiente
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV DJANGO_SETTINGS_MODULE=basefusion.settings
 
 # Definir diretório de trabalho
 WORKDIR /app
 
-# Clonar o repositório
-RUN git clone https://github.com/genildof/basefusion.git .
-
-# Instalar dependências Python
+# Copiar requirements.txt primeiro para aproveitar o cache de camadas do Docker
+COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Criar diretórios necessários
-RUN mkdir -p /app/data /app/media
+# Copiar o resto dos arquivos do projeto
+COPY . /app/
+
+# Criar diretórios necessários se não existirem
+RUN mkdir -p /app/staticfiles /app/data /app/media /app/static
+
+# Executar collectstatic
+RUN python manage.py collectstatic --noinput
 
 # Expor a porta
 EXPOSE 8000
 
+# Criar arquivo de inicialização
+RUN echo '#!/bin/bash\n\
+python manage.py migrate --noinput\n\
+exec gunicorn basefusion.wsgi:application --bind 0.0.0.0:8000 --workers=2 --threads=4 --worker-tmp-dir=/dev/shm --timeout=120' > /app/entrypoint.sh \
+&& chmod +x /app/entrypoint.sh
+
 # Comando para iniciar a aplicação
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"] 
+CMD ["/app/entrypoint.sh"] 

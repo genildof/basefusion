@@ -3,6 +3,7 @@ from processamento.models import BaseConsolidada
 import pandas as pd
 import numpy as np
 import warnings
+from django.db.models import Q
 
 # Desative os avisos
 warnings.simplefilter("ignore")
@@ -23,20 +24,67 @@ def atualizar_pedidos_report_b2b(caminho_arquivo):
         dict: Dicionário com estatísticas da atualização
     """
     try:
-        # Ler o arquivo Excel
-        df = pd.read_excel(caminho_arquivo)
+        # Lista das colunas específicas a serem importadas
+        colunas_necessarias = [
+            'Pedido', 'Dias_CarteiraAtual', 'TM_Tec_Total', 'Num_WCD', 'Num_ATP',
+            'Classificacao_Resumo_Atual', 'SegResumo', 'Quebra_Esteira', 'Esteira', 
+            'Esteira_Regionalizada', 'Segmento_V3', 'Carteira', 'Cliente', 'Cidade', 
+            'OSX', 'Cadeia_Pendencias_Descricao', 'DataTecnica', 'Produto', 'Servico', 
+            'Delta_REC_LIQ', 'Tecnologia_Report', 'Aging Resumo', 'Projetos', 'Projetos_Lote',
+            'Motivo_PTA_Cod', 'Origem Pend.', 'SLA_TECNICA', 'DraftEncontrado', 
+            'TarefaAtualDraft', 'DataCriaçãoDraft'
+        ]
+        
+        # Ler o arquivo Excel - primeiro verificamos todas as colunas disponíveis
+        df_preview = pd.read_excel(caminho_arquivo, nrows=1)
+        
+        # Verificar colunas disponíveis no arquivo
+        colunas_disponiveis = set(df_preview.columns)
+        colunas_a_importar = [col for col in colunas_necessarias if col in colunas_disponiveis]
+        
+        # Registrar colunas não encontradas
+        colunas_faltantes = [col for col in colunas_necessarias if col not in colunas_disponiveis]
+        if colunas_faltantes:
+            print(f"Aviso: As seguintes colunas não foram encontradas no arquivo: {', '.join(colunas_faltantes)}")
+        
+        # Verificar se coluna Pedido está disponível (obrigatória)
+        if 'Pedido' not in colunas_a_importar:
+            raise Exception("Coluna 'Pedido' não encontrada no arquivo. Esta coluna é obrigatória.")
+        
+        # Verificar se coluna Esteira está disponível (importante para filtro)
+        if 'Esteira' not in colunas_a_importar:
+            raise Exception("Coluna 'Esteira' não encontrada no arquivo. Esta coluna é necessária para filtragem.")
+        
+        # Ler novamente o arquivo Excel com apenas as colunas necessárias
+        df = pd.read_excel(caminho_arquivo, usecols=colunas_a_importar)
+        
+        # Verificar se há uma coluna 'Esteira'
+        if 'Esteira' not in df.columns:
+            raise Exception("Coluna 'Esteira' não encontrada no arquivo após leitura seletiva")
+        
+        # Total de registros brutos no arquivo
+        total_registros_brutos = len(df)
+        
+        # Filtragem 1: Remover linhas com Esteira vazia (NaN, None, string vazia)
+        df = df[~df['Esteira'].isna() & (df['Esteira'] != '')]
+        
+        # Total de registros após filtrar esteiras vazias
+        total_apos_filtro_esteira = len(df)
+        
+        # Substituir NaN por None para permitir inserção no banco
         df = df.replace({np.nan: None})
         
-        # Obter total no report
+        # Obter total no report após filtros
         total_report = len(df)
         
-        # Obter total na base
+        # Obter total na base antes da atualização
         total_base = BaseConsolidada.objects.count()
         
         # Contadores
         criados = 0
         atualizados = 0
         removidos = 0
+        ignorados = total_registros_brutos - total_report
         
         # Lista de pedidos no report
         pedidos_report = set(df['Pedido'].unique())
@@ -52,57 +100,85 @@ def atualizar_pedidos_report_b2b(caminho_arquivo):
             BaseConsolidada.objects.filter(pedido__in=pedidos_remover).delete()
             removidos = len(pedidos_remover)
         
+        # Remover registros existentes onde Esteira está preenchida mas outras colunas importantes estão nulas
+        # Identificando colunas críticas - aquelas que nunca deveriam ser nulas quando a esteira está definida
+        colunas_criticas = ['cliente', 'cidade', 'produto']
+        
+        # Remover registros com colunas críticas nulas
+        registros_invalidos = BaseConsolidada.objects.filter(
+            esteira__isnull=False
+        ).filter(
+            Q(cliente__isnull=True) | Q(cliente='') |
+            Q(cidade__isnull=True) | Q(cidade='') |
+            Q(produto__isnull=True) | Q(produto='')
+        )
+        
+        # Contabilizar registros inválidos para remoção
+        total_invalidos = registros_invalidos.count()
+        if total_invalidos > 0:
+            registros_invalidos.delete()
+            print(f"Removidos {total_invalidos} registros inválidos com esteira definida mas colunas críticas vazias")
+        
         # Atualizar ou criar registros
         for _, row in df.iterrows():
             try:
+                # Verificação adicional: pular linhas onde pedido está vazio
+                if pd.isna(row.get('Pedido')) or not str(row.get('Pedido')).strip():
+                    continue
+                
+                # Verificação adicional: pular linhas onde esteira está vazia
+                if pd.isna(row.get('Esteira')) or not str(row.get('Esteira')).strip():
+                    continue
+                
+                # Verificação adicional: pular linhas onde cliente e cidade estão vazios (provavelmente linha de observação)
+                if (pd.isna(row.get('Cliente')) or not str(row.get('Cliente')).strip()) and \
+                   (pd.isna(row.get('Cidade')) or not str(row.get('Cidade')).strip()):
+                    continue
+                
                 # Converter datas
                 data_tecnica = pd.to_datetime(row.get('DataTecnica')).date() if pd.notnull(row.get('DataTecnica')) else None
                 data_criacao_draft = pd.to_datetime(row.get('DataCriaçãoDraft')).date() if pd.notnull(row.get('DataCriaçãoDraft')) else None
-                data_rede = pd.to_datetime(row.get('Data_Rede')).date() if pd.notnull(row.get('Data_Rede')) else None
-                data_sae = pd.to_datetime(row.get('Data_SAE')).date() if pd.notnull(row.get('Data_SAE')) else None
+                
+                # Preparar defaults com apenas os campos disponíveis
+                defaults = {
+                    'cliente': row.get('Cliente'),
+                    'cidade': row.get('Cidade'),
+                    'esteira': row.get('Esteira'),
+                    'esteira_regionalizada': row.get('Esteira_Regionalizada'),
+                    'seg_resumo': row.get('SegResumo'),
+                    'produto': row.get('Produto'),
+                    'servico': row.get('Servico'),
+                    'classificacao_resumo_atual': row.get('Classificacao_Resumo_Atual'),
+                    'cadeia_pendencias_descricao': row.get('Cadeia_Pendencias_Descricao'),
+                    'carteira': row.get('Carteira'),
+                    'dias_carteira_atual': row.get('Dias_CarteiraAtual'),
+                    'data_tecnica': data_tecnica,
+                    'osx': row.get('OSX'),
+                    'motivo_pta_cod': row.get('Motivo_PTA_Cod'),
+                    'wcd': row.get('Num_WCD'),
+                    'num_atp': row.get('Num_ATP'),
+                    'draft_encontrado': row.get('DraftEncontrado'),
+                    'data_criacao_draft': data_criacao_draft,
+                    'tarefa_atual_draft': row.get('TarefaAtualDraft'),
+                    'tecnologia_report': row.get('Tecnologia_Report'),
+                    'quebra_esteira': row.get('Quebra_Esteira'),
+                    'projetos': row.get('Projetos'),
+                    'projetos_lote': row.get('Projetos_Lote'),
+                    'tm_tec_total': row.get('TM_Tec_Total'),
+                    'delta_rec_liq': row.get('Delta_REC_LIQ'),
+                    'aging_resumo': row.get('Aging Resumo'),
+                    'origem_pend': row.get('Origem Pend.'),
+                    'segmento_v3': row.get('Segmento_V3'),
+                    'sla_tecnica': row.get('SLA_TECNICA'),
+                }
+                
+                # Limpar defaults removendo chaves com valor None que não estavam no arquivo
+                defaults = {k: v for k, v in defaults.items() if k.lower() in [col.lower() for col in colunas_a_importar] or v is not None}
                 
                 # Criar ou atualizar registro
                 registro, created = BaseConsolidada.objects.update_or_create(
                     pedido=row['Pedido'],
-                    defaults={
-                        'cliente': row.get('Cliente'),
-                        'cidade': row.get('Cidade'),
-                        'esteira': row.get('Esteira'),
-                        'esteira_regionalizada': row.get('Esteira_Regionalizada'),
-                        'seg_resumo': row.get('SegResumo'),
-                        'produto': row.get('Produto'),
-                        'servico': row.get('Servico'),
-                        'classificacao_resumo_atual': row.get('Classificacao_Resumo_Atual'),
-                        'cadeia_pendencias_descricao': row.get('Cadeia_Pendencias_Descricao'),
-                        'carteira': row.get('Carteira'),
-                        'dias_carteira_atual': row.get('Dias_CarteiraAtual'),
-                        'data_tecnica': data_tecnica,
-                        'osx': row.get('OSX'),
-                        'motivo_pta_cod': row.get('Motivo_PTA_Cod'),
-                        'wcd': row.get('Num_WCD'),
-                        'num_atp': row.get('Num_ATP'),
-                        'draft_encontrado': row.get('DraftEncontrado'),
-                        'data_criacao_draft': data_criacao_draft,
-                        'tarefa_atual_draft': row.get('TarefaAtualDraft'),
-                        'tecnologia_report': row.get('Tecnologia_Report'),
-                        'quebra_esteira': row.get('Quebra_Esteira'),
-                        'projetos': row.get('Projetos'),
-                        'projetos_lote': row.get('Projetos_Lote'),
-                        'tm_tec_total': row.get('TM_Tec_Total'),
-                        'delta_rec_liq': row.get('Delta_REC_LIQ'),
-                        'aging_resumo': row.get('Aging Resumo'),
-                        'origem_pend': row.get('Origem Pend.'),
-                        'segmento_v3': row.get('Segmento_V3'),
-                        'sla_tecnica': row.get('SLA_TECNICA'),
-                        'status_rede': row.get('Status_Rede'),
-                        'eps_rede': row.get('EPS_Rede'),
-                        'data_rede': data_rede,
-                        'tipo_entrega': row.get('Tipo_Entrega'),
-                        'data_sae': data_sae,
-                        'agrupado': row.get('Agrupado'),
-                        'pendencia_macro': row.get('Pendencia_Macro'),
-                        'estimativa': row.get('Estimativa')
-                    }
+                    defaults=defaults
                 )
                 
                 if created:
@@ -115,11 +191,16 @@ def atualizar_pedidos_report_b2b(caminho_arquivo):
                 continue
         
         return {
+            'total_registros_brutos': total_registros_brutos,
+            'total_ignorados': ignorados,
             'total_report': total_report,
             'total_base': total_base,
             'criados': criados,
             'atualizados': atualizados,
-            'removidos': removidos
+            'removidos': removidos,
+            'registros_invalidos_removidos': total_invalidos,
+            'colunas_importadas': len(colunas_a_importar),
+            'colunas_faltantes': colunas_faltantes
         }
         
     except Exception as e:

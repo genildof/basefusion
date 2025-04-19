@@ -1,10 +1,10 @@
 {% extends 'processamento/base.html' %}
+{% load static %}
 
 {% block title %}Upload de Arquivos{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
-    <h2>Upload de Arquivos</h2>
     
     <div class="row mt-4">
         <!-- Upload de Arquivos -->
@@ -14,7 +14,7 @@
                     <h5 class="card-title mb-0">Upload de Arquivos</h5>
                 </div>
                 <div class="card-body">
-                    <form method="post" enctype="multipart/form-data">
+                    <form id="uploadForm" method="post" enctype="multipart/form-data">
                         {% csrf_token %}
                         <div class="row">
                             <div class="col-md-6">
@@ -45,7 +45,7 @@
                             <p>Clique no botão abaixo para processar as regras de negócio definidas no sistema.</p>
                             <form id="regrasForm" method="post">
                                 {% csrf_token %}
-                                <button type="submit" class="btn btn-warning" name="processar_regras">
+                                <button type="submit" class="btn btn-warning" id="processarRegrasBtn">
                                     <i class="bi bi-gear"></i> Processar Regras
                                 </button>
                             </form>
@@ -61,9 +61,9 @@
                         </div>
                         <div class="card-body">
                             <p>Clique no botão abaixo para exportar a base consolidada para Excel.</p>
-                            <a href="{% url 'exportar_base_excel' %}" class="btn btn-success">
+                            <button id="exportarExcelBtn" class="btn btn-success">
                                 <i class="bi bi-download"></i> Exportar Base
-                            </a>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -73,18 +73,17 @@
 </div>
 
 <!-- Modal de Progresso -->
-<div class="modal fade" id="progressModal" tabindex="-1" aria-labelledby="progressModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
+<div class="modal fade" id="progressModal" tabindex="-1" aria-labelledby="progressModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="progressModalLabel">Processando...</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title" id="progressModalLabel">Processando</h5>
             </div>
-            <div class="modal-body">
-                <div class="progress">
-                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
+            <div class="modal-body text-center">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Carregando...</span>
                 </div>
-                <div id="progressMessage" class="mt-2">Processando regras de negócio...</div>
+                <p id="progressMessage">Processando... Aguarde enquanto finalizamos a operação.</p>
             </div>
         </div>
     </div>
@@ -93,68 +92,350 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
-$(document).ready(function() {
-    // Formulário de upload
-    $('#uploadForm').on('submit', function(e) {
-        e.preventDefault();
-        var formData = new FormData(this);
-        
-        $.ajax({
-            url: '',
-            type: 'POST',
-            data: formData,
-            processData: false,
-            contentType: false,
-            beforeSend: function() {
-                $('#progressModal').modal('show');
-            },
-            success: function(response) {
-                if (response.success) {
-                    location.reload();
-                } else {
-                    alert(response.message || 'Erro ao processar arquivo');
-                }
-            },
-            error: function(xhr) {
-                alert('Erro ao processar arquivo: ' + xhr.responseJSON.message);
-            },
-            complete: function() {
-                $('#progressModal').modal('hide');
-            }
-        });
-    });
+document.addEventListener('DOMContentLoaded', function() {
+    const uploadForm = document.getElementById('uploadForm');
+    const regrasForm = document.getElementById('regrasForm');
+    const exportarBtn = document.getElementById('exportarExcelBtn');
     
-    // Formulário de regras
-    $('#regrasForm').on('submit', function(e) {
-        e.preventDefault();
-        var formData = new FormData(this);
-        formData.append('processar_regras', 'true');
-        
-        $.ajax({
-            url: '',
-            type: 'POST',
-            data: formData,
-            processData: false,
-            contentType: false,
-            beforeSend: function() {
-                $('#progressModal').modal('show');
-            },
-            success: function(response) {
-                if (response.success) {
-                    location.reload();
-                } else {
-                    alert('Erro ao processar regras de negócio');
-                }
-            },
-            error: function() {
-                alert('Erro ao processar regras de negócio');
-            },
-            complete: function() {
-                $('#progressModal').modal('hide');
-            }
-        });
+    // Configurar o modal de progresso
+    const progressModal = new bootstrap.Modal(document.getElementById('progressModal'), {
+        backdrop: 'static',
+        keyboard: false
     });
+    const progressMessage = document.getElementById('progressMessage');
+    
+    // Processar formulário de upload
+    if (uploadForm) {
+        uploadForm.addEventListener('submit', function(e) {
+            e.preventDefault(); // Impede o envio normal do formulário
+            const arquivo = document.getElementById('arquivo').files[0];
+            
+            if (!arquivo) {
+                alert('Por favor, selecione um arquivo para upload.');
+                return;
+            }
+            
+            // Mostrar modal de progresso IMEDIATAMENTE
+            progressMessage.textContent = 'Processando... Aguarde enquanto finalizamos a operação.';
+            progressModal.show();
+            
+            // Pequeno timeout para permitir que o modal apareça antes do processamento pesado
+            setTimeout(() => {
+                // Processar o arquivo Excel
+                processExcelFile(arquivo)
+                    .then(processedFile => {
+                        // Criar FormData com o arquivo processado
+                        const formData = new FormData();
+                        formData.append('arquivo', processedFile, arquivo.name);
+                        
+                        // Adicionar o token CSRF
+                        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                        formData.append('csrfmiddlewaretoken', csrfToken);
+                        
+                        // Enviar o arquivo para o servidor
+                        return fetch(uploadForm.action, {
+                            method: 'POST',
+                            body: formData,
+                        });
+                    })
+                    .then(response => {
+                        if (response.redirected) {
+                            window.location.href = response.url;
+                            return;
+                        }
+                        return response.text();
+                    })
+                    .then(html => {
+                        if (html) {
+                            // Esconder o modal
+                            progressModal.hide();
+                            
+                            // Verificar se a resposta é "upload = true"
+                            if (html.trim() === "upload = true") {
+                                // Redirecionar para a página atual (refresh)
+                                window.location.reload();
+                                return;
+                            }
+                            
+                            // Verificar se a resposta é um JSON de sucesso
+                            try {
+                                const jsonResponse = JSON.parse(html.trim());
+                                if (jsonResponse && jsonResponse.success === true) {
+                                    // Upload bem-sucedido, recarregar a página
+                                    window.location.reload();
+                                    return;
+                                }
+                            } catch (e) {
+                                // Não é um JSON válido, continuar com o processamento normal
+                                console.log("Resposta não é um JSON válido:", e);
+                            }
+                            
+                            // Se for outro tipo de resposta HTML, exibir
+                            document.open();
+                            document.write(html);
+                            document.close();
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Erro durante o upload:', error);
+                        progressModal.hide();
+                        alert('Ocorreu um erro durante o processamento do arquivo. Por favor, tente novamente.');
+                    });
+            }, 100); // Pequeno delay para garantir que o modal seja exibido
+        });
+    }
+    
+    // Processar formulário de regras de negócio
+    if (regrasForm) {
+        regrasForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Mostrar modal de progresso
+            progressMessage.textContent = 'Processando... Aguarde enquanto finalizamos a operação.';
+            progressModal.show();
+            
+            // Criar FormData
+            const formData = new FormData(regrasForm);
+            formData.append('processar_regras', 'true');
+            
+            // Enviar solicitação para processar regras
+            fetch(window.location.href, {
+                method: 'POST',
+                body: formData,
+            })
+            .then(response => {
+                if (response.redirected) {
+                    window.location.href = response.url;
+                    return;
+                }
+                return response.text();
+            })
+            .then(html => {
+                if (html) {
+                    progressModal.hide();
+                    
+                    // Verificar se a resposta é um JSON de sucesso
+                    try {
+                        const jsonResponse = JSON.parse(html.trim());
+                        if (jsonResponse && jsonResponse.success === true) {
+                            // Processamento bem-sucedido, recarregar a página
+                            window.location.reload();
+                            return;
+                        }
+                    } catch (e) {
+                        // Não é um JSON válido, continuar com o processamento normal
+                        console.log("Resposta não é um JSON válido:", e);
+                    }
+                    
+                    document.open();
+                    document.write(html);
+                    document.close();
+                }
+            })
+            .catch(error => {
+                console.error('Erro durante o processamento de regras:', error);
+                progressModal.hide();
+                alert('Ocorreu um erro durante o processamento de regras. Por favor, tente novamente.');
+            });
+        });
+    }
+    
+    // Exportar base consolidada
+    if (exportarBtn) {
+        exportarBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Mostrar modal de progresso
+            progressMessage.textContent = 'Processando... Aguarde enquanto geramos o arquivo Excel.';
+            progressModal.show();
+            
+            // URL para exportação
+            const exportUrl = "{% url 'exportar_base_excel' %}";
+            
+            // Usar XMLHttpRequest para detectar o progresso e término do download
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', exportUrl, true);
+            xhr.responseType = 'blob';
+            
+            xhr.onload = function() {
+                if (this.status === 200) {
+                    // Criar URL para o blob
+                    const blob = new Blob([this.response], { 
+                        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+                    });
+                    const url = window.URL.createObjectURL(blob);
+                    
+                    // Criar link para download e clicar nele automaticamente
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = 'base_consolidada.xlsx';
+                    document.body.appendChild(a);
+                    a.click();
+                    
+                    // Limpar URL criada e remover o link
+                    setTimeout(function() {
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(a);
+                        // Fechar a modal após o download começar
+                        progressModal.hide();
+                    }, 100);
+                } else {
+                    console.error('Erro ao baixar o arquivo');
+                    progressModal.hide();
+                    alert('Ocorreu um erro durante a exportação da base. Por favor, tente novamente.');
+                }
+            };
+            
+            xhr.onerror = function() {
+                console.error('Erro de rede ao baixar o arquivo');
+                progressModal.hide();
+                alert('Ocorreu um erro durante a exportação da base. Por favor, tente novamente.');
+            };
+            
+            // Garantir que a modal seja fechada mesmo que a requisição demore muito
+            setTimeout(function() {
+                if (progressModal._isShown) {
+                    progressModal.hide();
+                }
+            }, 30000); // 30 segundos de timeout
+            
+            xhr.send();
+        });
+    }
+    
+    /**
+     * Função para processar o arquivo Excel antes de enviar ao servidor
+     * - Remove a coluna CNPJ (cabeçalho e dados)
+     * - Limpa a coluna Cliente (remove números e caracteres especiais)
+     */
+    async function processExcelFile(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    // Ler o arquivo Excel
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    // Verificar se é um relatório B2B
+                    const isB2BReport = checkIfB2BReport(workbook);
+                    
+                    if (isB2BReport) {
+                        // Obter o nome da primeira planilha (geralmente é a que contém os dados)
+                        const sheetName = workbook.SheetNames[0];
+                        let worksheet = workbook.Sheets[sheetName];
+                        
+                        // Converter para JSON para facilitar o processamento
+                        let jsonData = XLSX.utils.sheet_to_json(worksheet);
+                        
+                        if (jsonData.length > 0) {
+                            // Processar cada linha para remover/limpar dados sensíveis
+                            jsonData = jsonData.map(row => {
+                                const newRow = {};
+                                
+                                // Copiar todas as colunas exceto "CNPJ"
+                                for (const key in row) {
+                                    // Pular a coluna CNPJ (qualquer variação de maiúsculas/minúsculas)
+                                    if (key.toUpperCase() !== 'CNPJ') {
+                                        // Se for a coluna Cliente, limpar os dados
+                                        if (key.toUpperCase() === 'CLIENTE') {
+                                            // Remover números e caracteres especiais, manter apenas letras e espaços
+                                            if (row[key]) {
+                                                newRow[key] = String(row[key]).replace(/[^a-zA-ZÀ-ÿ\s]/g, '').trim();
+                                            } else {
+                                                newRow[key] = '';
+                                            }
+                                        } else {
+                                            // Outras colunas são copiadas sem alteração
+                                            newRow[key] = row[key];
+                                        }
+                                    }
+                                }
+                                
+                                return newRow;
+                            });
+                            
+                            // Converter de volta para planilha
+                            const newWorksheet = XLSX.utils.json_to_sheet(jsonData);
+                            workbook.Sheets[sheetName] = newWorksheet;
+                        }
+                    }
+                    
+                    // Gerar o arquivo Excel (processado ou original)
+                    const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+                    const blob = new Blob([wbout], { 
+                        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+                    });
+                    
+                    // Retornar como um objeto File para compatibilidade com FormData
+                    resolve(new File([blob], file.name, { 
+                        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                    }));
+                    
+                } catch (error) {
+                    console.error('Erro ao processar o arquivo Excel:', error);
+                    reject(error);
+                }
+            };
+            
+            reader.onerror = function() {
+                reject(new Error('Erro ao ler o arquivo.'));
+            };
+            
+            reader.readAsArrayBuffer(file);
+        });
+    }
+    
+    /**
+     * Verifica se o arquivo é um relatório B2B com base em critérios como
+     * nome das planilhas ou cabeçalhos específicos
+     */
+    function checkIfB2BReport(workbook) {
+        // Verificar pelos nomes das planilhas
+        const sheetNames = workbook.SheetNames;
+        
+        // Alguns relatórios B2B têm planilhas com nomes específicos
+        if (sheetNames.some(name => 
+            name.includes('B2B') || 
+            name.includes('Report') || 
+            name.includes('Export') ||
+            name.includes('Relatório'))) {
+            return true;
+        }
+        
+        // Se não identificou pelo nome da planilha, verificar pelos cabeçalhos
+        // Examinar a primeira planilha
+        const firstSheetName = sheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        
+        // Converter para JSON para verificar cabeçalhos
+        try {
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            
+            // Verificar primeira linha (cabeçalhos)
+            if (jsonData.length > 0) {
+                const headers = jsonData[0];
+                
+                // Cabeçalhos comuns em relatórios B2B
+                const b2bHeaders = ['CNPJ', 'Cliente', 'Pedido', 'Faturamento', 'Entrega'];
+                
+                // Se pelo menos 3 desses cabeçalhos estiverem presentes, considerar como B2B
+                const matchCount = b2bHeaders.filter(header => 
+                    headers.some(h => String(h).toUpperCase().includes(header))
+                ).length;
+                
+                return matchCount >= 3;
+            }
+        } catch (e) {
+            console.warn('Erro ao tentar identificar pelos cabeçalhos:', e);
+        }
+        
+        return false; // Se não foi possível identificar, assumir que não é B2B
+    }
 });
 </script>
 {% endblock %} 

@@ -1,105 +1,97 @@
-# Base Fusion
+# Sistema de Processamento de Dados
 
-Sistema de processamento e consolidação de dados para análise e gestão de pedidos.
+Este sistema permite o processamento e análise de dados de planilhas Excel, com foco em dados de pedidos e status.
 
-## Funcionalidades Principais
+## Requisitos
 
-- Importação de bases de dados externas
-- Processamento de relatórios B2B
-- Classificação automática de pedidos
-- Sistema de revisão e aprovação
-- Exportação de dados consolidados
-- Regras de negócio automatizadas
+- Python 3.8 ou superior
+- pip (gerenciador de pacotes Python)
+- virtualenv (opcional, mas recomendado)
 
-## Tecnologias Utilizadas
+## Instalação
 
-- Python 3.9
-- Django 5.2
-- Pandas
-- OpenPyXL
-- Bootstrap 5
-- SQLite
-
-## Requisitos para Deploy
-
-- Docker
-- Docker Compose
-- Easy Panel
-
-## Instruções de Deploy
-
-### 1. Configuração do Ambiente
-
+1. Clone o repositório:
 ```bash
-# Clonar o repositório
 git clone https://github.com/genildof/basefusion.git
 cd basefusion
-
-# Criar arquivo .env
-cp .env.example .env
-# Editar .env com suas configurações
 ```
 
-### 2. Deploy com Docker
-
+2. Crie e ative um ambiente virtual (recomendado):
 ```bash
-# Construir e iniciar os containers
-docker-compose up -d
-
-# Executar migrações
-docker-compose exec web python manage.py migrate
-
-# Criar superusuário
-docker-compose exec web python manage.py createsuperuser
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+# ou
+venv\Scripts\activate  # Windows
 ```
 
-### 3. Estrutura de Diretórios
+3. Instale as dependências:
+```bash
+pip install -r requirements.txt
+```
+
+4. Execute as migrações do banco de dados:
+```bash
+python manage.py migrate
+```
+
+5. Crie um superusuário (opcional):
+```bash
+python manage.py createsuperuser
+```
+
+6. Inicie o servidor de desenvolvimento:
+```bash
+python manage.py runserver
+```
+
+## Funcionalidades
+
+1. **Upload de Arquivos**
+   - Upload de três planilhas Excel diferentes
+   - Validação de formato e estrutura dos arquivos
+   - Indicador visual de progresso
+
+2. **Processamento de Dados**
+   - Processamento automático após upload
+   - Correlação entre as bases de dados
+   - Sanitização e transformação dos dados
+
+3. **Revisão de Status**
+   - Interface para revisão de status
+   - Confirmação de status por operadores
+   - Histórico de revisões
+
+4. **Arquivos Processados**
+   - Listagem de todos os arquivos processados
+   - Download dos arquivos processados
+   - Histórico de processamentos
+
+## Estrutura do Projeto
 
 ```
 basefusion/
-├── data/           # Banco de dados SQLite
-├── media/          # Arquivos de mídia
-├── processamento/  # Código da aplicação
-│   ├── modules/    # Módulos de processamento
-│   ├── templates/  # Templates HTML
-│   └── views.py    # Views da aplicação
-├── Dockerfile      # Configuração do container
-├── docker-compose.yml
-└── requirements.txt
+├── processamento/          # Aplicação principal
+│   ├── migrations/        # Migrações do banco de dados
+│   ├── templates/         # Templates HTML
+│   ├── static/           # Arquivos estáticos
+│   ├── models.py         # Modelos do banco de dados
+│   ├── views.py          # Views da aplicação
+│   └── urls.py           # URLs da aplicação
+├── media/                # Arquivos de mídia
+│   ├── temp/            # Arquivos temporários
+│   └── arquivos_processados/  # Arquivos processados
+├── static/              # Arquivos estáticos globais
+├── basefusion/          # Configurações do projeto
+└── manage.py           # Script de gerenciamento
 ```
 
-## Configurações Importantes
+## Uso
 
-- O banco de dados SQLite é persistido em `data/db.sqlite3`
-- Arquivos de mídia são armazenados em `media/`
-- Configurações de ambiente no arquivo `.env`
+1. Acesse a aplicação através do navegador em `http://localhost:8000`
+2. Faça login (se criou um superusuário)
+3. Navegue pelo menu para acessar as diferentes funcionalidades
+4. Siga as instruções na interface para cada operação
 
-## Monitoramento e Manutenção
+## Suporte
 
-### Logs
-```bash
-docker-compose logs -f
-```
-
-### Backup
-```bash
-# Backup do banco de dados
-cp data/db.sqlite3 backup/db.sqlite3_$(date +%Y%m%d)
-```
-
-### Reinicialização
-```bash
-docker-compose restart
-```
-
-## Contribuição
-
-1. Fork o projeto
-2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
-3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
-4. Push para a branch (`git push origin feature/AmazingFeature`)
-5. Abra um Pull Request
-
-## Licença
-
-Este projeto está licenciado sob a licença Apache 2.0 - veja o arquivo [LICENSE](LICENSE) para detalhes. 
+Para suporte ou dúvidas, entre em contato com o administrador do sistema. 

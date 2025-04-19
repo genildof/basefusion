@@ -2,20 +2,26 @@ version: '3.8'
 
 services:
   web:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: basefusion:latest
+    container_name: basefusion
+    restart: unless-stopped
     ports:
       - "8000:8000"
     volumes:
       - ./data:/app/data
       - ./media:/app/media
+      - ./static:/app/static
     environment:
       - DEBUG=False
-      - ALLOWED_HOSTS=*
+      - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0,${EASYPANEL_DOMAIN:-basefusion.local}
       - DATABASE_URL=sqlite:///data/db.sqlite3
-      - SECRET_KEY=${SECRET_KEY}
-    restart: unless-stopped
+      - SECRET_KEY=${SECRET_KEY:-g=%jw)yyl1(_o16&ebdp=u4mc&!!e+s)3^!(s30szuwvrw#i$0}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/"]
       interval: 30s
       timeout: 10s
-      retries: 3 
+      retries: 3
+      start_period: 10s 

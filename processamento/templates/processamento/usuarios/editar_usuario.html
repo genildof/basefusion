@@ -1,0 +1,92 @@
+{% extends 'processamento/base.html' %}
+{% load static %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'lista_usuarios' %}">Usuários</a></li>
+        <li class="breadcrumb-item active" aria-current="page">{{ titulo }}</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-error {
+        color: #dc3545;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+    .card-header {
+        background-color: #f8f9fa;
+    }
+    .btn-toolbar {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+    .user-info {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+    }
+    .user-info p {
+        margin-bottom: 5px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">{{ titulo }}: {{ usuario.username }}</h5>
+        </div>
+        <div class="card-body">
+            <div class="user-info">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Nome:</strong> {{ usuario.first_name }} {{ usuario.last_name }}</p>
+                        <p><strong>Email:</strong> {{ usuario.email }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Último Login:</strong> {{ usuario.last_login|date:"d/m/Y H:i:s"|default:"Nunca" }}</p>
+                        <p><strong>Data de Ingresso:</strong> {{ usuario.date_joined|date:"d/m/Y" }}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <form method="post">
+                {% csrf_token %}
+                
+                <div class="row">
+                    <div class="col-md-12">
+                        <h6 class="mb-3">Perfil do Usuário</h6>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form_perfil.perfil.id_for_label }}" class="form-label">Tipo de Perfil</label>
+                        {{ form_perfil.perfil }}
+                        {% if form_perfil.perfil.errors %}
+                            <div class="form-error">{{ form_perfil.perfil.errors.0 }}</div>
+                        {% endif %}
+                        <div class="form-text">
+                            <strong>Supervisor:</strong> Acesso completo a todas as funcionalidades.<br>
+                            <strong>Operador:</strong> Acesso apenas à página de Revisão.
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="btn-toolbar mt-4">
+                    <a href="{% url 'lista_usuarios' %}" class="btn btn-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %} 

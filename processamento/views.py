@@ -4,12 +4,12 @@ import pandas as pd
 from django.http import HttpResponse, JsonResponse
 from django.conf import settings
 from django.utils import timezone
-from .models import ArquivoProcessado, RegistroRevisao, BaseConsolidada
+from .models import ArquivoProcessado, RegistroRevisao, BaseConsolidada, PerfilUsuario, LogAlteracaoPendenciaMacro
 from django.views.decorators.csrf import csrf_exempt
 import json
-from django.views.generic import TemplateView, ListView
+from django.views.generic import TemplateView, ListView, CreateView, UpdateView, DeleteView
 from django.db.models import Q, Count
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.utils.decorators import method_decorator
 import tempfile
 from django.core.files.storage import FileSystemStorage
@@ -26,12 +26,192 @@ from .modules.custom_filters import get_filtro
 from .modules.database_updates import atualizar_pedidos_report_b2b, atualizar_rede_externa
 from .modules.business_rules import processar_regras_negocio
 import openpyxl
+import time
+from django.db import models
+from django.urls import reverse_lazy
+from django.contrib.auth.models import User
+from django.contrib.auth.forms import UserCreationForm
+from django import forms
+from django.contrib.auth import logout
+from .modules.constants import PENDENCIAS_MACRO_OPCOES
+
+# Verificações de perfil de usuário
+def is_supervisor(user):
+    try:
+        return user.perfil.is_supervisor
+    except:
+        return False
+
+# Formulários para usuários
+class UsuarioForm(UserCreationForm):
+    email = forms.EmailField(required=True)
+    first_name = forms.CharField(max_length=30, required=True, label="Nome")
+    last_name = forms.CharField(max_length=30, required=True, label="Sobrenome")
+    
+    class Meta:
+        model = User
+        fields = ('username', 'email', 'first_name', 'last_name', 'password1', 'password2')
+    
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.email = self.cleaned_data['email']
+        user.first_name = self.cleaned_data['first_name']
+        user.last_name = self.cleaned_data['last_name']
+        
+        if commit:
+            user.save()
+        return user
+
+class PerfilUsuarioForm(forms.ModelForm):
+    class Meta:
+        model = PerfilUsuario
+        fields = ['perfil']
+        widgets = {
+            'perfil': forms.Select(attrs={'class': 'form-select'})
+        }
 
 # Create your views here.
 
 @login_required
 def home(request):
     return render(request, 'processamento/home.html')
+
+# Views de gerenciamento de usuários
+@login_required
+@user_passes_test(is_supervisor)
+def lista_usuarios(request):
+    usuarios = User.objects.all().order_by('username')
+    
+    # Verifica se cada usuário tem um perfil, caso não tenha, cria um perfil padrão
+    for usuario in usuarios:
+        try:
+            perfil = usuario.perfil
+        except:
+            PerfilUsuario.objects.create(usuario=usuario, perfil='OPERADOR')
+    
+    # Recarrega os usuários com seus perfis
+    usuarios = User.objects.all().select_related('perfil').order_by('username')
+    
+    # Conta o número de supervisores
+    total_supervisores = PerfilUsuario.objects.filter(perfil='SUPERVISOR').count()
+    
+    context = {
+        'usuarios': usuarios,
+        'total_supervisores': total_supervisores
+    }
+    return render(request, 'processamento/usuarios/lista_usuarios.html', context)
+
+@login_required
+@user_passes_test(is_supervisor)
+def criar_usuario(request):
+    if request.method == 'POST':
+        form_usuario = UsuarioForm(request.POST)
+        form_perfil = PerfilUsuarioForm(request.POST)
+        
+        if form_usuario.is_valid() and form_perfil.is_valid():
+            with transaction.atomic():
+                usuario = form_usuario.save()
+                perfil = form_perfil.save(commit=False)
+                perfil.usuario = usuario
+                perfil.save()
+                
+                messages.success(request, 'Usuário criado com sucesso!')
+                return redirect('lista_usuarios')
+    else:
+        form_usuario = UsuarioForm()
+        form_perfil = PerfilUsuarioForm()
+    
+    context = {
+        'form_usuario': form_usuario,
+        'form_perfil': form_perfil,
+        'titulo': 'Adicionar Usuário'
+    }
+    return render(request, 'processamento/usuarios/form_usuario.html', context)
+
+@login_required
+@user_passes_test(is_supervisor)
+def editar_usuario(request, pk):
+    usuario = get_object_or_404(User, pk=pk)
+    
+    try:
+        perfil = usuario.perfil
+    except:
+        perfil = PerfilUsuario.objects.create(usuario=usuario, perfil='OPERADOR')
+    
+    if request.method == 'POST':
+        form_perfil = PerfilUsuarioForm(request.POST, instance=perfil)
+        
+        if form_perfil.is_valid():
+            form_perfil.save()
+            messages.success(request, 'Perfil atualizado com sucesso!')
+            return redirect('lista_usuarios')
+    else:
+        form_perfil = PerfilUsuarioForm(instance=perfil)
+    
+    context = {
+        'usuario': usuario,
+        'form_perfil': form_perfil,
+        'titulo': 'Editar Usuário'
+    }
+    return render(request, 'processamento/usuarios/editar_usuario.html', context)
+
+@login_required
+@user_passes_test(is_supervisor)
+def excluir_usuario(request, pk):
+    usuario = get_object_or_404(User, pk=pk)
+    
+    if request.method == 'POST':
+        usuario.delete()
+        messages.success(request, 'Usuário excluído com sucesso!')
+        return redirect('lista_usuarios')
+    
+    context = {
+        'usuario': usuario
+    }
+    return render(request, 'processamento/usuarios/excluir_usuario.html', context)
+
+# Middleware de verificação de perfil
+class PerfilMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        # Código executado antes da visualização ser chamada
+        if request.user.is_authenticated:
+            try:
+                # Verifica se o usuário tem um perfil
+                perfil = request.user.perfil
+                
+                # Se o usuário for operador, só pode acessar a página de revisão
+                if perfil.is_operador:
+                    allowed_urls = [
+                        '/revisao/', 
+                        '/revisao/data/', 
+                        '/revisao/segmentos/', 
+                        '/revisao/registro/',
+                        '/accounts/logout/'
+                    ]
+                    
+                    # Verifica se a URL atual está na lista de permitidas
+                    path = request.path
+                    allowed = False
+                    
+                    for url in allowed_urls:
+                        if path.startswith(url):
+                            allowed = True
+                            break
+                    
+                    # Se não estiver na lista de permitidas e não for a página de login, redireciona
+                    if not allowed and not path.startswith('/accounts/login/') and not path == '/':
+                        return redirect('revisao')
+            except:
+                # Se o usuário não tem perfil, cria um perfil padrão
+                PerfilUsuario.objects.create(usuario=request.user, perfil='OPERADOR')
+        
+        # Processa a requisição
+        response = self.get_response(request)
+        
+        return response
 
 @login_required
 def upload_arquivos(request):
@@ -44,62 +224,116 @@ def upload_arquivos(request):
             
         try:
             if 'processar_regras' in request.POST:
-                print("Iniciando processamento das regras de negócio...")
-                # Obter todos os registros do banco
-                registros = BaseConsolidada.objects.all()
-                
-                # Converter para DataFrame
-                df = pd.DataFrame(list(registros.values()))
-                
-                # Processar regras de negócio
-                resultado = processar_regras_negocio(df)
-                
-                if resultado['success']:
-                    df_atualizado = resultado['df_atualizado']
-                    total_atualizados = resultado['resultados']['total_atualizados']
+                try:
+                    start_time = time.time()
                     
-                    # Atualizar o banco de dados
-                    print("Atualizando banco de dados...")
-                    atualizados = 0
-                    erros = 0
+                    # Registra o início do processamento
+                    log = ArquivoProcessado(
+                        nome="Processamento de Regras de Negócio",
+                        tipo_arquivo="REGRAS_NEGOCIO",
+                        status="PROCESSANDO",
+                        usuario=request.user
+                    )
+                    log.save()
                     
-                    # Processar cada registro individualmente
-                    for pedido, row in df_atualizado.iterrows():
-                        try:
-                            # Usar transação atômica para cada registro
-                            with transaction.atomic():
-                                registro = BaseConsolidada.objects.get(pedido=pedido)
-                                registro.tipo_entrega = row['tipo_entrega']
-                                registro.data_sae = row['data_sae']
-                                registro.esteira = row['esteira']
-                                registro.segmento_v3 = row['segmento_v3']
-                                registro.sla_tecnica = row['sla_tecnica']
-                                registro.status_rede = row['status_rede']
-                                registro.agrupado = row['agrupado']
-                                registro.pendencia_macro = row['pendencia_macro']
-                                registro.estimativa = row['estimativa']
-                                registro.save()
-                                atualizados += 1
-                                
-                                if atualizados % 1000 == 0:
-                                    print(f"Atualizados {atualizados} registros...")
+                    # Obtém os registros da BaseConsolidada
+                    registros = BaseConsolidada.objects.all()
+                    
+                    # Converte para DataFrame
+                    df = pd.DataFrame(list(registros.values()))
+                    
+                    # Processa as regras de negócio
+                    resultado = processar_regras_negocio(df)
+                    
+                    if resultado['success']:
+                        df_atualizado = resultado['df_atualizado']
+                        total_atualizados = resultado['resultados']['total_atualizados']
+                        
+                        # Atualizar o banco de dados
+                        print("Atualizando banco de dados...")
+                        atualizados = 0
+                        erros = 0
+                        
+                        # Processar cada registro individualmente
+                        for pedido, row in df_atualizado.iterrows():
+                            try:
+                                # Usar transação atômica para cada registro
+                                with transaction.atomic():
+                                    registro = BaseConsolidada.objects.get(pedido=pedido)
                                     
-                        except BaseConsolidada.DoesNotExist:
-                            print(f"Registro não encontrado para o pedido: {pedido}")
-                            erros += 1
-                            continue
-                        except Exception as e:
-                            print(f"Erro ao atualizar registro {pedido}: {str(e)}")
-                            erros += 1
-                            continue
+                                    # Atualiza os campos modificados
+                                    if 'tipo_entrega' in row and not pd.isna(row['tipo_entrega']):
+                                        registro.tipo_entrega = row['tipo_entrega']
+                                    if 'data_sae' in row and not pd.isna(row['data_sae']):
+                                        registro.data_sae = row['data_sae']
+                                    if 'esteira' in row and not pd.isna(row['esteira']):
+                                        registro.esteira = row['esteira']
+                                    if 'segmento_v3' in row and not pd.isna(row['segmento_v3']):
+                                        registro.segmento_v3 = row['segmento_v3']
+                                    if 'status_rede' in row and not pd.isna(row['status_rede']):
+                                        registro.status_rede = row['status_rede']
+                                    if 'agrupado' in row and not pd.isna(row['agrupado']):
+                                        registro.agrupado = row['agrupado']
+                                    if 'pendencia_macro' in row and not pd.isna(row['pendencia_macro']):
+                                        registro.pendencia_macro = row['pendencia_macro']
+                                    if 'estimativa' in row and not pd.isna(row['estimativa']):
+                                        registro.estimativa = row['estimativa']
+                                    
+                                    registro.save()
+                                    atualizados += 1
+                                    
+                                    if atualizados % 1000 == 0:
+                                        print(f"Atualizados {atualizados} registros...")
+                                        
+                            except BaseConsolidada.DoesNotExist:
+                                print(f"Registro não encontrado para o pedido: {pedido}")
+                                erros += 1
+                                continue
+                            except Exception as e:
+                                print(f"Erro ao atualizar registro {pedido}: {str(e)}")
+                                erros += 1
+                                continue
+                        
+                        # Calcula o tempo de processamento
+                        end_time = time.time()
+                        tempo_processamento = end_time - start_time
+                        
+                        # Atualiza o log com o resultado
+                        log.status = "CONCLUIDO"
+                        log.mensagem = f"Processamento de regras de negócio concluído com sucesso. Total de registros atualizados: {atualizados}, Erros: {erros}"
+                        log.registros_afetados = atualizados
+                        log.tempo_processamento = tempo_processamento
+                        log.save()
+                        
+                        print(f"Processamento concluído. Total de registros atualizados: {atualizados}, Erros: {erros}")
+                        messages.success(request, f"Regras de negócio processadas com sucesso. Total de registros atualizados: {atualizados}, Erros: {erros}")
+                    else:
+                        # Em caso de erro, registra no log
+                        log.status = "ERRO"
+                        log.mensagem = f"Erro ao processar regras de negócio: {resultado['error']}"
+                        log.save()
+                        
+                        print(f"Erro durante o processamento: {resultado['error']}")
+                        messages.error(request, f"Erro durante o processamento das regras de negócio: {resultado['error']}")
                     
-                    print(f"Processamento concluído. Total de registros atualizados: {atualizados}, Erros: {erros}")
-                    messages.success(request, f"Regras de negócio processadas com sucesso. Total de registros atualizados: {atualizados}, Erros: {erros}")
-                else:
-                    print(f"Erro durante o processamento: {resultado['error']}")
-                    messages.error(request, f"Erro durante o processamento das regras de negócio: {resultado['error']}")
-                
-                return redirect('upload_arquivos')
+                    return redirect('upload_arquivos')
+                except Exception as e:
+                    # Em caso de erro não tratado, registra no log
+                    if 'log' in locals():
+                        log.status = "ERRO"
+                        log.mensagem = f"Erro ao processar regras de negócio: {str(e)}"
+                        log.save()
+                    else:
+                        ArquivoProcessado.objects.create(
+                            nome="Processamento de Regras de Negócio",
+                            tipo_arquivo="REGRAS_NEGOCIO",
+                            status="ERRO",
+                            mensagem=f"Erro ao processar regras de negócio: {str(e)}",
+                            usuario=request.user
+                        )
+                    
+                    messages.error(request, f'Erro ao processar regras de negócio: {str(e)}')
+                    return redirect('upload_arquivos')
             
             # Processamento normal de arquivo
             arquivo = request.FILES['arquivo']
@@ -124,7 +358,30 @@ def upload_arquivos(request):
                 
                 if all(col in colunas_arquivo for col in colunas_rede_norm):
                     try:
+                        start_time = time.time()
+                        
+                        # Registra o início do processamento
+                        log = ArquivoProcessado(
+                            nome=arquivo.name,
+                            tipo_arquivo="REDE_EXTERNA",
+                            status="PROCESSANDO",
+                            usuario=request.user
+                        )
+                        log.save()
+                        
                         stats = atualizar_rede_externa(temp_file.name)
+                        
+                        # Calcula o tempo de processamento
+                        end_time = time.time()
+                        tempo_processamento = end_time - start_time
+                        
+                        # Atualiza o log com o resultado
+                        log.status = "CONCLUIDO"
+                        log.mensagem = f"Arquivo de Rede Externa processado com sucesso. Total na base de Rede: {stats['total_rede']}, Total na base do sistema: {stats['total_base']}, Pedidos atualizados: {stats['atualizados']}"
+                        log.registros_afetados = stats['atualizados']
+                        log.tempo_processamento = tempo_processamento
+                        log.save()
+                        
                         messages.success(request, f'''
                             Arquivo de Rede Externa processado com sucesso!
                             Total na base de Rede: {stats['total_rede']}
@@ -132,8 +389,29 @@ def upload_arquivos(request):
                             Pedidos atualizados: {stats['atualizados']}
                         ''')
                     except Exception as e:
+                        if 'log' in locals():
+                            log.status = "ERRO"
+                            log.mensagem = f"Erro ao processar base de Rede Externa: {str(e)}"
+                            log.save()
+                        else:
+                            ArquivoProcessado.objects.create(
+                                nome=arquivo.name,
+                                tipo_arquivo="REDE_EXTERNA",
+                                status="ERRO",
+                                mensagem=f"Erro ao processar base de Rede Externa: {str(e)}",
+                                usuario=request.user
+                            )
+                        
                         raise Exception(f'Erro ao processar base de Rede Externa: {str(e)}')
                 else:
+                    ArquivoProcessado.objects.create(
+                        nome=arquivo.name,
+                        tipo_arquivo="REDE_EXTERNA",
+                        status="ERRO",
+                        mensagem=f"Colunas necessárias não encontradas na aba ANALITICO. Colunas encontradas: {df.columns.tolist()}, Colunas esperadas: {colunas_rede}",
+                        usuario=request.user
+                    )
+                    
                     raise Exception(f'''
                         Colunas necessárias não encontradas na aba ANALITICO.
                         Colunas encontradas: {df.columns.tolist()}
@@ -150,24 +428,205 @@ def upload_arquivos(request):
                 
                 if all(col in colunas_arquivo for col in colunas_b2b_norm):
                     try:
+                        start_time = time.time()
+                        
+                        # Registra o início do processamento
+                        log = ArquivoProcessado(
+                            nome=arquivo.name,
+                            tipo_arquivo="REPORT_B2B",
+                            status="PROCESSANDO",
+                            usuario=request.user
+                        )
+                        log.save()
+                        
                         stats = atualizar_pedidos_report_b2b(temp_file.name)
+                        
+                        # Calcula o tempo de processamento
+                        end_time = time.time()
+                        tempo_processamento = end_time - start_time
+                        
+                        # Adiciona informações sobre colunas na mensagem
+                        info_colunas = ""
+                        if stats.get('colunas_faltantes'):
+                            info_colunas = f"\nAtenção: {len(stats['colunas_faltantes'])} colunas esperadas não foram encontradas no arquivo."
+                        
+                        # Atualiza o log com o resultado
+                        log.status = "CONCLUIDO"
+                        log.mensagem = f"Arquivo B2B processado com sucesso. Total bruto: {stats['total_registros_brutos']}, Ignorados: {stats['total_ignorados']}, Total válidos: {stats['total_report']}, Total na base: {stats['total_base']}, Pedidos criados: {stats['criados']}, Pedidos atualizados: {stats['atualizados']}, Pedidos removidos: {stats['removidos']}, Registros inválidos removidos: {stats['registros_invalidos_removidos']}. Colunas importadas: {stats['colunas_importadas']}/30.{info_colunas}"
+                        log.registros_afetados = stats['criados'] + stats['atualizados'] + stats['removidos'] + stats['registros_invalidos_removidos']
+                        log.tempo_processamento = tempo_processamento
+                        log.save()
+                        
                         messages.success(request, f'''
                             Arquivo B2B processado com sucesso!
-                            Total no report: {stats['total_report']}
+                            Total registros brutos no arquivo: {stats['total_registros_brutos']}
+                            Linhas ignoradas (sem Esteira ou inválidas): {stats['total_ignorados']}
+                            Total registros válidos processados: {stats['total_report']}
                             Total na base: {stats['total_base']}
                             Pedidos criados: {stats['criados']}
                             Pedidos atualizados: {stats['atualizados']}
                             Pedidos removidos: {stats['removidos']}
+                            Registros inválidos na base removidos: {stats['registros_invalidos_removidos']}
+                            Colunas importadas: {stats['colunas_importadas']}/30
+                            {info_colunas}
                         ''')
                     except Exception as e:
+                        if 'log' in locals():
+                            log.status = "ERRO"
+                            log.mensagem = f"Erro ao processar report B2B: {str(e)}"
+                            log.save()
+                        else:
+                            ArquivoProcessado.objects.create(
+                                nome=arquivo.name,
+                                tipo_arquivo="REPORT_B2B",
+                                status="ERRO",
+                                mensagem=f"Erro ao processar report B2B: {str(e)}",
+                                usuario=request.user
+                            )
+                        
                         raise Exception(f'Erro ao processar report B2B: {str(e)}')
                 else:
+                    ArquivoProcessado.objects.create(
+                        nome=arquivo.name,
+                        tipo_arquivo="REPORT_B2B",
+                        status="ERRO",
+                        mensagem=f"Colunas necessárias não encontradas na aba Report. Colunas encontradas: {df.columns.tolist()}, Colunas esperadas: {colunas_b2b}",
+                        usuario=request.user
+                    )
+                    
                     raise Exception(f'''
                         Colunas necessárias não encontradas na aba Report.
                         Colunas encontradas: {df.columns.tolist()}
                         Colunas esperadas: {colunas_b2b}
                     ''')
+            # Verificar se é aba Export (tentativa de tratar esse tipo de arquivo)
+            elif 'Export' in xls.sheet_names:
+                df = pd.read_excel(temp_file.name, sheet_name='Export')
+                print(f"Colunas encontradas na aba Export: {df.columns.tolist()}")
+                
+                # Verificar se as colunas necessárias para um report B2B estão presentes
+                colunas_b2b = ['Pedido', 'Cliente', 'Cidade', 'Esteira']
+                colunas_arquivo = [col for col in df.columns]
+                
+                if all(col in colunas_arquivo for col in colunas_b2b):
+                    try:
+                        start_time = time.time()
+                        
+                        # Registra o início do processamento
+                        log = ArquivoProcessado(
+                            nome=arquivo.name,
+                            tipo_arquivo="REPORT_B2B",
+                            status="PROCESSANDO",
+                            usuario=request.user
+                        )
+                        log.save()
+                        
+                        # Salvar o DataFrame com a aba Export para um arquivo temporário de Excel com aba Report
+                        temp_b2b_file = tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx')
+                        temp_b2b_file.close()
+                        
+                        # Criar um novo Excel com aba Report
+                        with pd.ExcelWriter(temp_b2b_file.name, engine='openpyxl') as writer:
+                            df.to_excel(writer, sheet_name='Report', index=False)
+                        
+                        # Processar como se fosse um report B2B
+                        stats = atualizar_pedidos_report_b2b(temp_b2b_file.name)
+                        
+                        # Limpar o arquivo temporário
+                        os.unlink(temp_b2b_file.name)
+                        
+                        # Calcula o tempo de processamento
+                        end_time = time.time()
+                        tempo_processamento = end_time - start_time
+                        
+                        # Adiciona informações sobre colunas na mensagem
+                        info_colunas = ""
+                        if stats.get('colunas_faltantes'):
+                            info_colunas = f"\nAtenção: {len(stats['colunas_faltantes'])} colunas esperadas não foram encontradas no arquivo."
+                        
+                        # Atualiza o log com o resultado
+                        log.status = "CONCLUIDO"
+                        log.mensagem = f"Arquivo com aba 'Export' processado como B2B. Total bruto: {stats['total_registros_brutos']}, Ignorados: {stats['total_ignorados']}, Total válidos: {stats['total_report']}, Total na base: {stats['total_base']}, Pedidos criados: {stats['criados']}, Pedidos atualizados: {stats['atualizados']}, Pedidos removidos: {stats['removidos']}, Registros inválidos removidos: {stats['registros_invalidos_removidos']}. Colunas importadas: {stats['colunas_importadas']}/30.{info_colunas}"
+                        log.registros_afetados = stats['criados'] + stats['atualizados'] + stats['removidos'] + stats['registros_invalidos_removidos']
+                        log.tempo_processamento = tempo_processamento
+                        log.save()
+                        
+                        messages.success(request, f'''
+                            Arquivo com aba 'Export' processado como B2B!
+                            Total registros brutos no arquivo: {stats['total_registros_brutos']}
+                            Linhas ignoradas (sem Esteira ou inválidas): {stats['total_ignorados']}
+                            Total registros válidos processados: {stats['total_report']}
+                            Total na base: {stats['total_base']}
+                            Pedidos criados: {stats['criados']}
+                            Pedidos atualizados: {stats['atualizados']}
+                            Pedidos removidos: {stats['removidos']}
+                            Registros inválidos na base removidos: {stats['registros_invalidos_removidos']}
+                            Colunas importadas: {stats['colunas_importadas']}/30
+                            {info_colunas}
+                        ''')
+                        
+                        # Remover arquivo temporário original
+                        os.unlink(temp_file.name)
+                        return JsonResponse({'success': True})
+                        
+                    except Exception as e:
+                        # Limpar o arquivo temporário se ele existir
+                        if 'temp_b2b_file' in locals():
+                            try:
+                                os.unlink(temp_b2b_file.name)
+                            except:
+                                pass
+                        
+                        if 'log' in locals():
+                            log.status = "ERRO"
+                            log.mensagem = f"Erro ao processar arquivo Export como B2B: {str(e)}"
+                            log.save()
+                        else:
+                            ArquivoProcessado.objects.create(
+                                nome=arquivo.name,
+                                tipo_arquivo="REPORT_B2B",
+                                status="ERRO",
+                                mensagem=f"Erro ao processar arquivo Export como B2B: {str(e)}",
+                                usuario=request.user
+                            )
+                        
+                        # Remover arquivo temporário original
+                        os.unlink(temp_file.name)
+                        return JsonResponse({
+                            'success': False,
+                            'message': f"Erro ao processar arquivo Export como B2B: {str(e)}"
+                        }, status=400)
+                else:
+                    # As colunas necessárias não estão presentes
+                    ArquivoProcessado.objects.create(
+                        nome=arquivo.name,
+                        tipo_arquivo="REPORT_B2B",
+                        status="ERRO",
+                        mensagem=f"Arquivo com aba 'Export' não contém todas as colunas necessárias. Colunas encontradas: {colunas_arquivo}, Colunas esperadas: {colunas_b2b}",
+                        usuario=request.user
+                    )
+                    
+                    # Remover arquivo temporário
+                    os.unlink(temp_file.name)
+                    return JsonResponse({
+                        'success': False,
+                        'message': f'''
+                            Arquivo com aba 'Export' não contém todas as colunas necessárias.
+                            Colunas necessárias: {colunas_b2b}
+                            Por favor, use um arquivo que contenha estas colunas.
+                        '''
+                    }, status=400)
             else:
+                abas_disponíveis = ", ".join(xls.sheet_names)
+                
+                ArquivoProcessado.objects.create(
+                    nome=arquivo.name,
+                    tipo_arquivo="DESCONHECIDO",
+                    status="ERRO",
+                    mensagem=f"Formato de arquivo desconhecido. Abas encontradas: {abas_disponíveis}, Abas esperadas: ANALITICO (para Rede Externa) ou Report (para B2B).",
+                    usuario=request.user
+                )
+                
                 raise Exception(f'''
                     Nenhuma aba válida encontrada no arquivo.
                     Abas disponíveis: {xls.sheet_names}
@@ -191,8 +650,60 @@ def upload_arquivos(request):
 
 @login_required
 def lista_arquivos(request):
-    arquivos = ArquivoProcessado.objects.all().order_by('-data_processamento')
-    return render(request, 'processamento/lista_arquivos.html', {'arquivos': arquivos})
+    # Obtém os filtros da requisição
+    tipo_arquivo = request.GET.get('tipo_arquivo', '')
+    status = request.GET.get('status', '')
+    data_inicio = request.GET.get('data_inicio', '')
+    data_fim = request.GET.get('data_fim', '')
+    
+    # Filtra os arquivos processados
+    arquivos = ArquivoProcessado.objects.all()
+    
+    if tipo_arquivo:
+        arquivos = arquivos.filter(tipo_arquivo=tipo_arquivo)
+    
+    if status:
+        arquivos = arquivos.filter(status=status)
+    
+    if data_inicio:
+        data_inicio = datetime.strptime(data_inicio, '%Y-%m-%d')
+        arquivos = arquivos.filter(data_processamento__gte=data_inicio)
+    
+    if data_fim:
+        data_fim = datetime.strptime(data_fim, '%Y-%m-%d')
+        data_fim = data_fim.replace(hour=23, minute=59, second=59)
+        arquivos = arquivos.filter(data_processamento__lte=data_fim)
+    
+    # Ordena por data de processamento (mais recente primeiro)
+    arquivos = arquivos.order_by('-data_processamento')
+    
+    # Estatísticas
+    total_arquivos = arquivos.count()
+    total_registros_afetados = arquivos.filter(registros_afetados__isnull=False).aggregate(
+        total=models.Sum('registros_afetados')
+    )['total'] or 0
+    
+    # Resumo por tipo
+    resumo_tipo = arquivos.values('tipo_arquivo').annotate(
+        total=models.Count('id'),
+        sucesso=models.Count('id', filter=models.Q(status='CONCLUIDO')),
+        erro=models.Count('id', filter=models.Q(status='ERRO'))
+    )
+    
+    contexto = {
+        'arquivos': arquivos,
+        'tipos_arquivo': ArquivoProcessado.TIPO_CHOICES,
+        'status_opcoes': ArquivoProcessado.STATUS_CHOICES,
+        'tipo_arquivo_filtro': tipo_arquivo,
+        'status_filtro': status,
+        'data_inicio_filtro': data_inicio,
+        'data_fim_filtro': data_fim,
+        'total_arquivos': total_arquivos,
+        'total_registros_afetados': total_registros_afetados,
+        'resumo_tipo': resumo_tipo
+    }
+    
+    return render(request, 'processamento/lista_arquivos.html', contexto)
 
 @login_required
 def revisao(request):
@@ -566,48 +1077,113 @@ def get_registro_detalhes_base(request, pedido):
 @login_required
 def detalhe_revisao(request, pedido):
     registro = get_object_or_404(BaseConsolidada, pedido=pedido)
-    return render(request, 'processamento/detalhe_registro.html', {'registro': registro})
+    logs_alteracao = LogAlteracaoPendenciaMacro.objects.filter(pedido=pedido).order_by('-data_alteracao')
+    
+    context = {
+        'registro': registro,
+        'pendencias_macro_opcoes': PENDENCIAS_MACRO_OPCOES,
+        'logs_alteracao': logs_alteracao
+    }
+    
+    return render(request, 'processamento/detalhe_registro.html', context)
+
+@login_required
+def atualizar_pendencia_macro(request, pedido):
+    if request.method == 'POST':
+        # Obter o registro a ser atualizado
+        registro = get_object_or_404(BaseConsolidada, pedido=pedido)
+        
+        # Obter o novo valor de pendencia_macro do formulário
+        nova_pendencia_macro = request.POST.get('pendencia_macro')
+        
+        # Registrar o log de alteração
+        valor_anterior = registro.pendencia_macro
+        LogAlteracaoPendenciaMacro.objects.create(
+            pedido=pedido,
+            valor_anterior=valor_anterior,
+            valor_novo=nova_pendencia_macro,
+            usuario=request.user
+        )
+        
+        # Atualizar o registro
+        registro.pendencia_macro = nova_pendencia_macro
+        registro.save()
+        
+        # Adicionar mensagem de sucesso
+        messages.success(request, f'Pendência Macro atualizada com sucesso para "{nova_pendencia_macro}".')
+    
+    # Redirecionar de volta para a página de detalhes
+    return redirect('detalhe_revisao', pedido=pedido)
 
 @login_required
 def exportar_base_excel(request):
     try:
+        start_time = time.time()
+        
+        # Registra o início da exportação
+        log = ArquivoProcessado(
+            nome="Exportação da Base Consolidada",
+            tipo_arquivo="EXPORTACAO",
+            status="PROCESSANDO",
+            usuario=request.user
+        )
+        log.save()
+        
+        # Limpar arquivos temporários antigos
+        for file in os.listdir('.'):
+            if file.startswith('base_batimento_report_') and file.endswith('.xlsx'):
+                try:
+                    os.remove(file)
+                except Exception as e:
+                    print(f"Erro ao remover arquivo temporário {file}: {str(e)}")
+        
         # Obtém todos os registros da base consolidada
         registros = BaseConsolidada.objects.all()
         
         # Converte para DataFrame
         df = pd.DataFrame(list(registros.values()))
         
-        # Remove timezone dos campos datetime
-        for col in df.select_dtypes(include=['datetime64[ns]']).columns:
-            df[col] = df[col].dt.tz_localize(None)
+        # Remove colunas indesejadas
+        colunas_remover = ['id', 'created_at', 'updated_at']
+        df = df.drop(columns=[col for col in colunas_remover if col in df.columns])
+        
+        # Remove timezone e converte campos datetime
+        for col in df.columns:
+            if pd.api.types.is_datetime64_any_dtype(df[col]):
+                try:
+                    df[col] = pd.to_datetime(df[col], errors='coerce')
+                    df[col] = df[col].dt.tz_localize(None)
+                except Exception as e:
+                    print(f"Erro ao processar coluna {col}: {str(e)}")
+                    df[col] = ''
+            df[col] = df[col].fillna('')
         
         # Define o caminho do arquivo modelo
         arquivo_modelo = os.path.join(settings.MEDIA_ROOT, 'modelos', 'modelo_batimento.xlsx')
-        
-        # Carrega o arquivo modelo
-        livro = openpyxl.load_workbook(arquivo_modelo)
-        
-        # Obtém a aba Base_Consolidada
-        sheet = livro['Base_Consolidada']
-        
-        # Limpa o conteúdo existente
-        sheet.delete_rows(1, sheet.max_row)
-        
-        # Atualiza os títulos das colunas
-        for j, col_name in enumerate(df.columns, start=1):
-            sheet.cell(row=1, column=j, value=col_name)
-        
-        # Atualiza o DataFrame na planilha
-        for i, row in enumerate(df.values, start=2):
-            for j, value in enumerate(row, start=1):
-                sheet.cell(row=i, column=j, value=value)
         
         # Gera o nome do arquivo com timestamp
         now = datetime.now()
         formatted_date = now.strftime("%d_%m_%H_%M")
         arquivo_saida = f"base_batimento_report_{formatted_date}.xlsx"
         
-        # Salva o arquivo com o novo nome
+        # Copia o arquivo modelo usando shutil.copy2 para preservar metadados
+        import shutil
+        shutil.copy2(arquivo_modelo, arquivo_saida)
+        
+        # Carrega o arquivo copiado
+        livro = openpyxl.load_workbook(arquivo_saida, data_only=True)
+        sheet = livro['Base_Consolidada']
+        
+        # Limpa o conteúdo existente (exceto cabeçalhos)
+        if sheet.max_row > 1:
+            sheet.delete_rows(2, sheet.max_row - 1)
+        
+        # Atualiza os dados
+        for i, row in enumerate(df.values, start=2):
+            for j, value in enumerate(row, start=1):
+                sheet.cell(row=i, column=j, value=value)
+        
+        # Salva o arquivo
         livro.save(arquivo_saida)
         
         # Lê o arquivo para download
@@ -616,10 +1192,218 @@ def exportar_base_excel(request):
             response['Content-Disposition'] = f'attachment; filename={arquivo_saida}'
         
         # Remove o arquivo temporário
-        os.remove(arquivo_saida)
+        try:
+            os.remove(arquivo_saida)
+        except Exception as e:
+            print(f"Erro ao remover arquivo temporário {arquivo_saida}: {str(e)}")
+        
+        # Calcula o tempo de processamento
+        end_time = time.time()
+        tempo_processamento = end_time - start_time
+        
+        # Atualiza o log com o resultado
+        log.status = "CONCLUIDO"
+        log.mensagem = f"Exportação da base consolidada concluída com sucesso. Arquivo: {arquivo_saida}"
+        log.registros_afetados = BaseConsolidada.objects.count()
+        log.tempo_processamento = tempo_processamento
+        log.save()
         
         return response
         
     except Exception as e:
+        # Em caso de erro, registra no log
+        if 'log' in locals():
+            log.status = "ERRO"
+            log.mensagem = f"Erro ao exportar base: {str(e)}"
+            log.save()
+        else:
+            ArquivoProcessado.objects.create(
+                nome="Exportação da Base Consolidada",
+                tipo_arquivo="EXPORTACAO",
+                status="ERRO",
+                mensagem=f"Erro ao exportar base: {str(e)}",
+                usuario=request.user
+            )
+        
         messages.error(request, f'Erro ao exportar base: {str(e)}')
         return redirect('upload_arquivos')
+
+@login_required
+def arquivo_detalhes(request, arquivo_id):
+    """API para obter detalhes de um arquivo processado"""
+    try:
+        arquivo = ArquivoProcessado.objects.get(id=arquivo_id)
+        
+        # Obtém os valores de display para o tipo de arquivo e status
+        tipo_arquivo_display = dict(ArquivoProcessado.TIPO_CHOICES).get(arquivo.tipo_arquivo, arquivo.tipo_arquivo)
+        status_display = dict(ArquivoProcessado.STATUS_CHOICES).get(arquivo.status, arquivo.status)
+        
+        # Formata a data de processamento
+        data_processamento = arquivo.data_processamento.strftime("%d/%m/%Y %H:%M:%S")
+        
+        return JsonResponse({
+            'id': arquivo.id,
+            'nome': arquivo.nome,
+            'tipo_arquivo': arquivo.tipo_arquivo,
+            'tipo_arquivo_display': tipo_arquivo_display,
+            'status': arquivo.status,
+            'status_display': status_display,
+            'data_processamento': data_processamento,
+            'usuario': arquivo.usuario.username,
+            'mensagem': arquivo.mensagem,
+            'registros_afetados': arquivo.registros_afetados,
+            'tempo_processamento': arquivo.tempo_processamento,
+        })
+    except ArquivoProcessado.DoesNotExist:
+        return JsonResponse({'error': 'Arquivo não encontrado'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+# Função de logout personalizada que aceita métodos GET
+def custom_logout(request):
+    logout(request)
+    return redirect('login')
+
+@login_required
+def exportar_revisao_excel(request):
+    try:
+        start_time = time.time()
+        
+        # Registra o início da exportação
+        log = ArquivoProcessado(
+            nome="Exportação de Dados da Revisão",
+            tipo_arquivo="EXPORTACAO",
+            status="PROCESSANDO",
+            usuario=request.user
+        )
+        log.save()
+        
+        # Limpar arquivos temporários antigos
+        for file in os.listdir('.'):
+            if file.startswith('revisao_report_') and file.endswith('.xlsx'):
+                try:
+                    os.remove(file)
+                except Exception as e:
+                    print(f"Erro ao remover arquivo temporário {file}: {str(e)}")
+        
+        # Obter parâmetros de filtro
+        segmento = request.GET.get('segmento', '')
+        tipo = request.GET.get('tipo', 'revisar')
+        search = request.GET.get('search', '')
+        
+        # Obter filtros do módulo
+        filtros = get_filtro(tipo)
+        
+        # Construir a query base
+        query = Q()
+        
+        # Aplicar filtros baseado no tipo selecionado
+        if 'pendencia_macro' in filtros:
+            query &= Q(pendencia_macro__in=filtros['pendencia_macro'])
+        if 'classificacao_resumo_atual' in filtros:
+            query &= Q(classificacao_resumo_atual=filtros['classificacao_resumo_atual'])
+        if 'esteira' in filtros:
+            query &= Q(esteira=filtros['esteira'])
+        
+        # Aplicar filtro por segmento se fornecido
+        if segmento:
+            query &= Q(segmento_v3=segmento)
+        
+        # Aplicar filtro de busca global
+        if search:
+            query &= (
+                Q(pedido__icontains=search) |
+                Q(cliente__icontains=search) |
+                Q(carteira__icontains=search) |
+                Q(pendencia_macro__icontains=search) |
+                Q(estimativa__icontains=search) |
+                Q(segmento_v3__icontains=search)
+            )
+        
+        # Obtém os registros filtrados
+        registros = BaseConsolidada.objects.filter(query)
+        
+        # Converte para DataFrame
+        df = pd.DataFrame(list(registros.values()))
+        
+        # Remove colunas indesejadas
+        colunas_remover = ['id', 'created_at', 'updated_at']
+        df = df.drop(columns=[col for col in colunas_remover if col in df.columns])
+        
+        # Remove timezone e converte campos datetime
+        for col in df.columns:
+            if pd.api.types.is_datetime64_any_dtype(df[col]):
+                try:
+                    df[col] = pd.to_datetime(df[col], errors='coerce')
+                    df[col] = df[col].dt.tz_localize(None)
+                except Exception as e:
+                    print(f"Erro ao processar coluna {col}: {str(e)}")
+                    df[col] = ''
+            df[col] = df[col].fillna('')
+        
+        # Gera o nome do arquivo com timestamp
+        now = datetime.now()
+        formatted_date = now.strftime("%d_%m_%H_%M")
+        arquivo_saida = f"revisao_report_{formatted_date}.xlsx"
+        
+        # Criar o arquivo Excel diretamente com pandas
+        with pd.ExcelWriter(arquivo_saida, engine='openpyxl') as writer:
+            # Escrever o DataFrame para o Excel
+            df.to_excel(writer, sheet_name='Base_Consolidada', index=False)
+            
+            # Ajustar larguras das colunas automaticamente
+            worksheet = writer.sheets['Base_Consolidada']
+            for i, col in enumerate(df.columns):
+                max_len = max(
+                    df[col].astype(str).map(len).max(),  # comprimento máximo do conteúdo
+                    len(str(col))  # comprimento do cabeçalho
+                ) + 2  # adicionar um pouco de espaço
+                
+                # Evitar colunas muito largas
+                max_len = min(max_len, 50)
+                
+                # Converter índice de coluna para letra (A, B, C, ...)
+                col_letter = openpyxl.utils.get_column_letter(i + 1)
+                worksheet.column_dimensions[col_letter].width = max_len
+        
+        # Lê o arquivo para download
+        with open(arquivo_saida, 'rb') as f:
+            response = HttpResponse(f.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            response['Content-Disposition'] = f'attachment; filename={arquivo_saida}'
+        
+        # Remove o arquivo temporário
+        try:
+            os.remove(arquivo_saida)
+        except Exception as e:
+            print(f"Erro ao remover arquivo temporário {arquivo_saida}: {str(e)}")
+        
+        # Calcula o tempo de processamento
+        end_time = time.time()
+        tempo_processamento = end_time - start_time
+        
+        # Atualiza o log com o resultado
+        log.status = "CONCLUIDO"
+        log.mensagem = f"Exportação dos dados de revisão concluída com sucesso. Arquivo: {arquivo_saida}"
+        log.registros_afetados = registros.count()
+        log.tempo_processamento = tempo_processamento
+        log.save()
+        
+        return response
+        
+    except Exception as e:
+        # Em caso de erro, registra no log
+        if 'log' in locals():
+            log.status = "ERRO"
+            log.mensagem = f"Erro ao exportar dados de revisão: {str(e)}"
+            log.save()
+        else:
+            ArquivoProcessado.objects.create(
+                nome="Exportação de Dados da Revisão",
+                tipo_arquivo="EXPORTACAO",
+                status="ERRO",
+                mensagem=f"Erro ao exportar dados de revisão: {str(e)}",
+                usuario=request.user
+            )
+        
+        messages.error(request, f'Erro ao exportar dados de revisão: {str(e)}')
+        return redirect('revisao')

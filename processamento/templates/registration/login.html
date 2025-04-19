@@ -1,36 +1,96 @@
-{% extends 'base.html' %}
+{% extends 'processamento/base.html' %}
+{% load static %}
+
+{% block title %}Login | BaseFusion{% endblock %}
+
+{% block extra_css %}
+<style>
+    .login-container {
+        max-width: 400px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    .login-card {
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .card-header {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #e9ecef;
+        border-radius: 10px 10px 0 0 !important;
+    }
+    .login-logo {
+        width: 64px;
+        height: 64px;
+        margin-bottom: 20px;
+    }
+    .btn-login {
+        width: 100%;
+        padding: 10px;
+        font-weight: bold;
+    }
+    .login-form .form-group {
+        margin-bottom: 20px;
+    }
+    .login-title {
+        font-weight: bold;
+        color: #333;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
+<div class="container">
     <div class="row justify-content-center">
         <div class="col-md-6">
-            <div class="card shadow">
-                <div class="card-header bg-primary text-white">
-                    <h4 class="mb-0">Login</h4>
+            <div class="login-container">
+                <div class="text-center mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="#0d6efd" class="login-logo" viewBox="0 0 16 16">
+                        <path d="M8 1c-1.573 0-3.022.289-4.096.777C2.875 2.245 2 2.993 2 4s.875 1.755 1.904 2.223C4.978 6.711 6.427 7 8 7s3.022-.289 4.096-.777C13.125 5.755 14 5.007 14 4s-.875-1.755-1.904-2.223C11.022 1.289 9.573 1 8 1z"/>
+                        <path d="M2 7v-.839c.457.432 1.004.751 1.49.972C4.722 7.693 6.318 8 8 8s3.278-.307 4.51-.867c.486-.22 1.033-.54 1.49-.972V7c0 .424-.155.802-.411 1.133a4.51 4.51 0 0 0-4.815 1.843A12.31 12.31 0 0 1 8 10c-1.573 0-3.022-.289-4.096-.777C2.875 8.755 2 8.007 2 7zm6.257 3.998L8 11c-1.573 0-3.022-.289-4.096-.777C2.875 9.755 2 9.007 2 8v-.839c.457.432 1.004.751 1.49.972C4.722 8.693 6.318 9 8 9h.003v.002z"/>
+                        <path d="M2 12v-.839c.457.432 1.004.751 1.49.972C4.722 12.693 6.318 13 8 13s3.278-.307 4.51-.867c.486-.22 1.033-.54 1.49-.972V12c0 .424-.155.802-.411 1.133a4.51 4.51 0 0 0-4.815 1.843A12.31 12.31 0 0 1 8 15c-1.573 0-3.022-.289-4.096-.777C2.875 13.755 2 13.007 2 12z"/>
+                    </svg>
+                    <h2 class="login-title">BaseFusion</h2>
+                    <p class="text-muted">Sistema de Gerenciamento de Bases</p>
                 </div>
-                <div class="card-body">
-                    <form method="post">
-                        {% csrf_token %}
-                        {% if form.errors %}
+
+                <div class="card login-card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0 text-center">Login</h5>
+                    </div>
+                    <div class="card-body">
+                        <form method="post" class="login-form">
+                            {% csrf_token %}
+                            
+                            {% if form.errors %}
                             <div class="alert alert-danger">
-                                Seu nome de usuário e senha não correspondem. Por favor, tente novamente.
+                                <strong>Erro:</strong> Usuário ou senha incorretos.
                             </div>
-                        {% endif %}
-                        
-                        <div class="mb-3">
-                            <label for="id_username" class="form-label">Usuário</label>
-                            <input type="text" name="username" id="id_username" class="form-control" required autofocus>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="id_password" class="form-label">Senha</label>
-                            <input type="password" name="password" id="id_password" class="form-control" required>
-                        </div>
-                        
-                        <div class="d-grid">
-                            <button type="submit" class="btn btn-primary">Entrar</button>
-                        </div>
-                    </form>
+                            {% endif %}
+                            
+                            <div class="form-group mb-3">
+                                <label for="id_username" class="form-label">Usuário</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-person"></i></span>
+                                    <input type="text" name="username" id="id_username" class="form-control" placeholder="Usuário" required autofocus>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group mb-3">
+                                <label for="id_password" class="form-label">Senha</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                                    <input type="password" name="password" id="id_password" class="form-control" placeholder="Senha" required>
+                                </div>
+                            </div>
+                            
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-primary btn-login">Entrar</button>
+                            </div>
+                            
+                            <input type="hidden" name="next" value="{{ next }}">
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>

@@ -63,6 +63,62 @@ def validar_data_tecnica(row):
         print(f"Erro ao validar data técnica: {str(e)}")
         return None
 
+def estimativa_sae(row):
+    """Estima o status SAE com base na data técnica e estimativa"""
+    invalido = "Ajustar SAE"
+
+    try:
+        # Verifica se há data técnica
+        if pd.isna(row['data_tecnica']) or row['data_tecnica'] == '':
+            return invalido
+            
+        # Tenta converter a data técnica para datetime
+        try:
+            # Tenta primeiro o formato com hora
+            dt = datetime.strptime(str(row['data_tecnica']), '%Y-%m-%d %H:%M:%S')
+        except ValueError:
+            try:
+                # Se falhar, tenta o formato sem hora
+                dt = datetime.strptime(str(row['data_tecnica']), '%Y-%m-%d')
+            except ValueError:
+                return invalido
+
+        data_atual = datetime.now()
+        mes_atual = data_atual.month
+        ano_atual = data_atual.year
+        
+        # Verifica se a estimativa é Agenda Futura
+        if row['estimativa'] == 'Agenda Futura':
+            # Para Agenda Futura, só considera OK se a data for do mês seguinte em diante
+            if dt.year > ano_atual or (dt.year == ano_atual and dt.month > mes_atual):
+                return "OK"
+            else:
+                return invalido
+                
+        # Verifica se a estimativa é Agenda Mês
+        elif row['estimativa'] == 'Agenda Mês':
+            # Se a data for do mês atual
+            if dt.year == ano_atual and dt.month == mes_atual:
+                # Verifica se é dia útil (não é sábado nem domingo)
+                if dt.weekday() < 5:  # 0-4 = segunda a sexta
+                    # Verifica se é do dia seguinte até o último dia do mês
+                    if dt.day > data_atual.day:
+                        return "OK"
+                    else:
+                        return invalido
+                else:
+                    return invalido
+            else:
+                return invalido
+                
+        # Para outras estimativas, retorna inválido
+        else:
+            return invalido
+            
+    except Exception as e:
+        print(f"Erro ao estimar SAE: {str(e)}")
+        return invalido
+    
 def ajustar_esteira(row):
     # Verifica se esteira é "EC" e num_atp está no padrão desejado
     if row["esteira"] == "EC" and isinstance(row["num_atp"], str) and \

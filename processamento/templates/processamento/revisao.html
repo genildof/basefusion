@@ -1,6 +1,8 @@
 {% extends 'processamento/base.html' %}
 {% load static %}
 
+{% block title %}Revisão de Status{% endblock %}
+
 {% block breadcrumb %}
 <nav aria-label="breadcrumb">
     <ol class="breadcrumb">
@@ -99,15 +101,20 @@
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid">
+<div class="container">
     <!-- Filtro de Tipo -->
     <div class="filtro-container">
         <h5>Pedidos</h5>
-        <select class="form-select filtro-select" id="tipoFiltro">
-            <option value="revisar">Pedidos a Revisar</option>
-            <option value="tecnica">Técnica</option>
-            <option value="todos">Todos</option>
-        </select>
+        <div class="d-flex">
+            <select class="form-select filtro-select me-2" id="tipoFiltro">
+                <option value="revisar">Pedidos a Revisar</option>
+                <option value="tecnica">Técnica</option>
+                <option value="todos">Todos</option>
+            </select>
+            <button id="btnExportarRevisao" class="btn btn-success">
+                <i class="bi bi-file-excel"></i> Exportar Dados
+            </button>
+        </div>
     </div>
 
     <!-- Cards de Segmentos -->
@@ -125,96 +132,25 @@
     </div>
     
     <!-- Tabela -->
-    <div class="table-responsive">
-        <table id="tabelaRevisao" class="table table-striped table-bordered">
-            <thead>
-                <tr>
-                    <th>Pedido</th>
-                    <th>Dias Carteira</th>
-                    <th>Data Técnica</th>
-                    <th>Carteira</th>
-                    <th>Pendência Macro</th>
-                    <th>Estimativa</th>
-                    <th>Segmento V3</th>
-                </tr>
-            </thead>
-        </table>
-    </div>
-</div>
-
-<!-- Modal de Detalhes -->
-<div class="modal fade" id="detailsModal" tabindex="-1" aria-labelledby="detailsModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="detailsModalLabel">Detalhes do Registro</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-            </div>
-            <div class="modal-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <h6>Informações Básicas</h6>
-                        <table class="table table-sm">
-                            <tr><td>Pedido:</td><td id="pedido">-</td></tr>
-                            <tr><td>Cliente:</td><td id="cliente">-</td></tr>
-                            <tr><td>Cidade:</td><td id="cidade">-</td></tr>
-                            <tr><td>Esteira:</td><td id="esteira">-</td></tr>
-                            <tr><td>Esteira Regionalizada:</td><td id="esteira_regionalizada">-</td></tr>
-                            <tr><td>Segmento Resumo:</td><td id="seg_resumo">-</td></tr>
-                            <tr><td>Produto:</td><td id="produto">-</td></tr>
-                            <tr><td>Serviço:</td><td id="servico">-</td></tr>
-                            <tr><td>Classificação:</td><td id="classificacao_resumo_atual">-</td></tr>
-                            <tr><td>Cadeia Pendências:</td><td id="cadeia_pendencias_descricao">-</td></tr>
-                        </table>
-                    </div>
-                    <div class="col-md-6">
-                        <h6>Informações Técnicas</h6>
-                        <table class="table table-sm">
-                            <tr><td>Carteira:</td><td id="carteira">-</td></tr>
-                            <tr><td>Dias Carteira:</td><td id="dias_carteira_atual">-</td></tr>
-                            <tr><td>Data Técnica:</td><td id="data_tecnica">-</td></tr>
-                            <tr><td>OSX:</td><td id="osx">-</td></tr>
-                            <tr><td>Motivo PTA:</td><td id="motivo_pta_cod">-</td></tr>
-                            <tr><td>WCD:</td><td id="wcd">-</td></tr>
-                            <tr><td>TM Técnico Total:</td><td id="tm_tec_total">-</td></tr>
-                            <tr><td>Delta Rec Liq:</td><td id="delta_rec_liq">-</td></tr>
-                            <tr><td>Aging Resumo:</td><td id="aging_resumo">-</td></tr>
-                            <tr><td>Origem Pendência:</td><td id="origem_pend">-</td></tr>
-                        </table>
-                    </div>
-                </div>
-                <div class="row mt-3">
-                    <div class="col-md-6">
-                        <h6>Informações de Rede</h6>
-                        <table class="table table-sm">
-                            <tr><td>Status Rede:</td><td id="status_rede">-</td></tr>
-                            <tr><td>EPS Rede:</td><td id="eps_rede">-</td></tr>
-                            <tr><td>Data Rede:</td><td id="data_rede">-</td></tr>
-                        </table>
-                    </div>
-                    <div class="col-md-6">
-                        <h6>Informações Adicionais</h6>
-                        <table class="table table-sm">
-                            <tr><td>Draft Encontrado:</td><td id="draft_encontrado">-</td></tr>
-                            <tr><td>Data Criação Draft:</td><td id="data_criacao_draft">-</td></tr>
-                            <tr><td>Tarefa Atual Draft:</td><td id="tarefa_atual_draft">-</td></tr>
-                            <tr><td>Tipo Entrega:</td><td id="tipo_entrega">-</td></tr>
-                            <tr><td>Data SAE:</td><td id="data_sae">-</td></tr>
-                        </table>
-                    </div>
-                </div>
-                <div class="row mt-3">
-                    <div class="col-md-12">
-                        <h6>Status Macro</h6>
-                        <table class="table table-sm">
-                            <tr><td>Pendência Macro:</td><td id="pendencia_macro">-</td></tr>
-                            <tr><td>Estimativa:</td><td id="estimativa">-</td></tr>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Pedidos</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table id="tabelaRevisao" class="table table-striped table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Pedido</th>
+                            <th>Dias Carteira</th>
+                            <th>Data Técnica</th>
+                            <th>Carteira</th>
+                            <th>Pendência Macro</th>
+                            <th>Estimativa</th>
+                            <th>Segmento V3</th>
+                        </tr>
+                    </thead>
+                </table>
             </div>
         </div>
     </div>
@@ -246,198 +182,154 @@
     }
 
     // Função para formatar dias_carteira com tags
-    function formatarDiasCarteira(dias) {
-        if (dias === null || dias === undefined || dias === '-') return '-';
+    function formatDiasCarteira(dias) {
+        if (dias === '-' || dias === null || dias === undefined) return '-';
         
-        const diasNum = parseInt(dias);
-        if (isNaN(diasNum)) return dias;
+        dias = parseInt(dias);
+        if (isNaN(dias)) return dias;
         
-        let classe = '';
-        if (diasNum >= 14) {
-            classe = 'critico';
-        } else if (diasNum >= 7) {
-            classe = 'alerta';
+        if (dias >= 30) {
+            return `<span class="dias-carteira critico">${dias}</span>`;
+        } else if (dias >= 15) {
+            return `<span class="dias-carteira alerta">${dias}</span>`;
+        } else {
+            return dias;
         }
-        
-        return `<span class="dias-carteira ${classe}">${dias}</span>`;
     }
 
-    $(document).ready(function() {
-        const csrftoken = getCookie('csrftoken');
-        let table;
-        let segmentoAtivo = '';
-        let tipoFiltro = 'revisar';
-
-        // Evento de mudança no combo de filtros
-        $('#tipoFiltro').change(function() {
-            tipoFiltro = $(this).val();
-            carregarSegmentos();
-            table.ajax.reload();
-        });
-
-        function carregarSegmentos() {
-            const tipo = $('#tipoFiltro').val();
-            $.ajax({
-                url: '/revisao/segmentos/',
-                data: { tipo: tipo },
-                success: function(response) {
-                    const container = $('#segmentosContainer');
-                    container.empty();
-                    
-                    // Adicionar card "Todos"
-                    const cardTodos = $(`
-                        <div class="card segmento-card active" style="width: 200px;">
-                            <div class="card-body">
-                                <h6 class="card-title">Todos</h6>
-                                <p class="card-text">${response.total_geral || 0} pedidos</p>
+    // Função para carregar os segmentos disponíveis
+    function carregarSegmentos() {
+        const $container = $('#segmentosContainer');
+        $container.empty();
+        
+        // Adicionar card "Todos"
+        const $cardTodos = $(`
+            <div class="card segmento-card mb-2 ${segmentoAtivo === '' ? 'active' : ''}" data-segmento="">
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="card-title mb-0">Todos</h6>
+                        <span class="badge bg-secondary ms-2" id="total-geral">-</span>
+                    </div>
+                </div>
+            </div>
+        `);
+        $container.append($cardTodos);
+        
+        // Fazer requisição para obter os segmentos
+        $.ajax({
+            url: '{% url "revisao_segmentos" %}',
+            data: { 
+                tipo: tipoFiltro 
+            },
+            dataType: 'json',
+            success: function(response) {
+                $('#total-geral').text(response.total_geral);
+                
+                response.segmentos.forEach(function(segmento) {
+                    const $card = $(`
+                        <div class="card segmento-card mb-2 ${segmentoAtivo === segmento.segmento ? 'active' : ''}" data-segmento="${segmento.segmento}">
+                            <div class="card-body py-2 px-3">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h6 class="card-title mb-0">${segmento.segmento}</h6>
+                                    <span class="badge bg-primary ms-2">${segmento.total}</span>
+                                </div>
                             </div>
                         </div>
                     `);
+                    $container.append($card);
+                });
+                
+                // Adicionar evento de clique nos cards
+                $('.segmento-card').click(function() {
+                    const segmento = $(this).data('segmento');
+                    segmentoAtivo = segmento;
                     
-                    cardTodos.click(function() {
-                        $('.segmento-card').removeClass('active');
-                        $(this).addClass('active');
-                        segmentoAtivo = '';
-                        table.ajax.reload();
-                    });
+                    // Atualizar classes ativas
+                    $('.segmento-card').removeClass('active');
+                    $(this).addClass('active');
                     
-                    container.append(cardTodos);
-                    
-                    response.segmentos.forEach(function(segmento) {
-                        const card = $(`
-                            <div class="card segmento-card" style="width: 200px;">
-                                <div class="card-body">
-                                    <h6 class="card-title">${segmento.segmento}</h6>
-                                    <p class="card-text">${segmento.total} pedidos</p>
-                                </div>
-                            </div>
-                        `);
-                        
-                        card.click(function() {
-                            $('.segmento-card').removeClass('active');
-                            $(this).addClass('active');
-                            segmentoAtivo = segmento.segmento;
-                            table.ajax.reload();
-                        });
-                        
-                        container.append(card);
-                    });
-                }
-            });
-        }
-        
-        function inicializarTabela() {
-            table = $('#tabelaRevisao').DataTable({
-                processing: true,
-                serverSide: true,
-                ajax: {
-                    url: '{% url "revisao_data" %}',
-                    type: 'GET',
-                    data: function(d) {
-                        d.segmento = segmentoAtivo;
-                        d.tipo = tipoFiltro;
-                    }
-                },
-                columns: [
-                    {data: 'pedido', name: 'pedido', render: function(data, type, row) {
-                        return `<a href="/revisao/registro/${data}/">${data}</a>`;
-                    }},
-                    {data: 'dias_carteira_atual', name: 'dias_carteira_atual', render: function(data, type, row) {
-                        return formatarDiasCarteira(data);
-                    }},
-                    {data: 'data_tecnica', name: 'data_tecnica'},
-                    {data: 'carteira', name: 'carteira'},
-                    {data: 'pendencia_macro', name: 'pendencia_macro'},
-                    {data: 'estimativa', name: 'estimativa'},
-                    {data: 'segmento_v3', name: 'segmento_v3'}
-                ],
-                language: {
-                    url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/pt-BR.json'
-                },
-                order: [[0, 'desc']],
-                pageLength: 25,
-                responsive: true,
-                dom: '<"top"lf>rt<"bottom"ip>',
-                lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]]
-            });
-        }
+                    // Recarregar a tabela com o novo filtro
+                    table.ajax.reload();
+                });
+            },
+            error: function(xhr, status, error) {
+                console.error("Erro ao carregar segmentos:", error);
+                $('#segmentosContainer').html('<div class="alert alert-danger">Erro ao carregar segmentos. Tente novamente mais tarde.</div>');
+            }
+        });
+    }
 
-        carregarSegmentos();
-        inicializarTabela();
-        
-        // Função para visualizar detalhes
-        function viewDetails(pedido) {
-            const csrftoken = getCookie('csrftoken');
-            const url = `{% url 'get_registro_detalhes' pedido='0000000' %}`.replace('0000000', pedido);
-            
-            $.ajax({
-                url: url,
-                type: 'GET',
-                headers: {
-                    'X-CSRFToken': csrftoken
-                },
-                success: function(response) {
-                    if (response.success) {
-                        const registro = response.registro;
-                        
-                        // Informações Básicas
-                        $('#pedido').text(registro.pedido || '-');
-                        $('#cliente').text(registro.cliente || '-');
-                        $('#cidade').text(registro.cidade || '-');
-                        $('#esteira').text(registro.esteira || '-');
-                        $('#esteira_regionalizada').text(registro.esteira_regionalizada || '-');
-                        $('#seg_resumo').text(registro.seg_resumo || '-');
-                        $('#produto').text(registro.produto || '-');
-                        $('#servico').text(registro.servico || '-');
-                        $('#classificacao_resumo_atual').text(registro.classificacao || '-');
-                        $('#cadeia_pendencias_descricao').text(registro.cadeia_pendencias_descricao || '-');
-                        $('#carteira').text(registro.carteira || '-');
-                        $('#dias_carteira_atual').html(formatarDiasCarteira(registro.dias_carteira_atual));
-                        $('#data_tecnica').text(registro.data_tecnica || '-');
-                        $('#osx').text(registro.osx || '-');
-                        $('#motivo_pta_cod').text(registro.motivo_pta_cod || '-');
-                        $('#wcd').text(registro.num_wcd || '-');
-                        
-                        // Informações Técnicas
-                        $('#tm_tec_total').text(registro.tm_tec_total || '-');
-                        $('#delta_rec_liq').text(registro.delta_rec_liq || '-');
-                        $('#aging_resumo').text(registro.aging_resumo || '-');
-                        $('#origem_pend').text(registro.origem_pend || '-');
-                        $('#segmento_v3').text(registro.segmento_v3 || '-');
-                        $('#sla_tecnica').text(registro.sla_tecnica || '-');
-                        $('#quebra_esteira').text(registro.quebra_esteira || '-');
-                        $('#projetos').text(registro.projetos || '-');
-                        $('#projetos_lote').text(registro.projetos_lote || '-');
-                        $('#tecnologia_report').text(registro.tecnologia_report || '-');
-                        
-                        // Informações Adicionais
-                        $('#draft_encontrado').text(registro.draft_encontrado || '-');
-                        $('#data_criacao_draft').text(registro.data_criacao_draft || '-');
-                        $('#tarefa_atual_draft').text(registro.tarefa_atual_draft || '-');
-                        $('#status_rede').text(registro.status_rede || '-');
-                        $('#eps_rede').text(registro.eps_rede || '-');
-                        $('#data_rede').text(registro.data_rede || '-');
-                        $('#tipo_entrega').text(registro.tipo_entrega || '-');
-                        $('#data_sae').text(registro.data_sae || '-');
-                        
-                        // Status Macro
-                        $('#pendencia_macro').text(registro.pendencia_macro || '-');
-                        $('#estimativa').text(registro.estimativa || '-');
-                        
-                        // Inicializar e mostrar o modal
-                        const modalElement = document.getElementById('detailsModal');
-                        const modal = new bootstrap.Modal(modalElement);
-                        modal.show();
-                    } else {
-                        alert(response.message || 'Erro ao carregar detalhes do registro');
+    $(document).ready(function() {
+        // Inicializar DataTable
+        table = $('#tabelaRevisao').DataTable({
+            processing: true,
+            serverSide: true,
+            ajax: {
+                url: '{% url "revisao_data" %}',
+                data: function(d) {
+                    d.segmento = segmentoAtivo;
+                    d.tipo = tipoFiltro;
+                }
+            },
+            columns: [
+                { 
+                    data: 'pedido', 
+                    render: function(data, type, row) {
+                        if (type === 'display') {
+                            return `<a href="/revisao/registro/${data}/">${data}</a>`;
+                        }
+                        return data;
                     }
                 },
-                error: function(xhr, status, error) {
-                    console.error('Erro:', error);
-                    alert('Erro ao carregar detalhes do registro');
-                }
-            });
-        }
+                { 
+                    data: 'dias_carteira_atual',
+                    render: function(data, type, row) {
+                        if (type === 'display') {
+                            return formatDiasCarteira(data);
+                        }
+                        return data;
+                    }
+                },
+                { data: 'data_tecnica' },
+                { data: 'carteira' },
+                { data: 'pendencia_macro' },
+                { data: 'estimativa' },
+                { data: 'segmento_v3' }
+            ],
+            order: [[1, 'desc']],
+            language: {
+                url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/pt-BR.json'
+            },
+            pageLength: 50,
+        });
+        
+        // Carregar segmentos iniciais
+        carregarSegmentos();
+        
+        // Evento de mudança no select de filtro
+        $('#tipoFiltro').change(function() {
+            tipoFiltro = $(this).val();
+            segmentoAtivo = ''; // Resetar segmento ativo
+            carregarSegmentos();
+            table.ajax.reload();
+        });
+        
+        // Botão para exportar dados filtrados
+        $('#btnExportarRevisao').click(function() {
+            // Obter os parâmetros de filtro atuais
+            const params = new URLSearchParams();
+            params.append('segmento', segmentoAtivo);
+            params.append('tipo', tipoFiltro);
+            
+            // Obter valor da busca se existir
+            const searchValue = table.search();
+            if (searchValue) {
+                params.append('search', searchValue);
+            }
+            
+            // Redirecionar para a URL de exportação com os parâmetros
+            window.location.href = '{% url "exportar_revisao_excel" %}?' + params.toString();
+        });
     });
 </script>
 {% endblock %} 

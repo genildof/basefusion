@@ -2,6 +2,29 @@ from django.db import models
 from django.utils import timezone
 from django.contrib.auth.models import User
 
+# Modelo para perfil de usuário
+class PerfilUsuario(models.Model):
+    PERFIL_CHOICES = [
+        ('SUPERVISOR', 'Supervisor'),
+        ('OPERADOR', 'Operador'),
+    ]
+    
+    usuario = models.OneToOneField(User, on_delete=models.CASCADE, related_name='perfil')
+    perfil = models.CharField(max_length=20, choices=PERFIL_CHOICES, default='OPERADOR')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.usuario.username} - {self.get_perfil_display()}"
+    
+    @property
+    def is_supervisor(self):
+        return self.perfil == 'SUPERVISOR'
+    
+    @property
+    def is_operador(self):
+        return self.perfil == 'OPERADOR'
+
 class BaseConsolidada(models.Model):
     pedido = models.CharField(max_length=50, unique=True)
     cliente = models.CharField(max_length=255, null=True, blank=True)
@@ -51,6 +74,8 @@ class ArquivoProcessado(models.Model):
     TIPO_CHOICES = [
         ('REPORT_B2B', 'Report B2B'),
         ('REDE_EXTERNA', 'Rede Externa'),
+        ('REGRAS_NEGOCIO', 'Regras de Negócio'),
+        ('EXPORTACAO', 'Exportação de Base'),
     ]
     
     STATUS_CHOICES = [
@@ -65,6 +90,12 @@ class ArquivoProcessado(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDENTE')
     data_processamento = models.DateTimeField(auto_now_add=True)
     usuario = models.ForeignKey(User, on_delete=models.CASCADE)
+    mensagem = models.TextField(null=True, blank=True)
+    registros_afetados = models.IntegerField(null=True, blank=True)
+    tempo_processamento = models.FloatField(null=True, blank=True, help_text="Tempo de processamento em segundos")
+    
+    class Meta:
+        ordering = ['-data_processamento']
     
     def __str__(self):
         return f"{self.nome} - {self.tipo_arquivo} - {self.status}"
@@ -79,3 +110,16 @@ class RegistroRevisao(models.Model):
 
     def __str__(self):
         return f"{self.pedido} - {self.status_anterior} -> {self.status_atual}"
+
+class LogAlteracaoPendenciaMacro(models.Model):
+    pedido = models.CharField(max_length=50)
+    valor_anterior = models.CharField(max_length=255, null=True, blank=True)
+    valor_novo = models.CharField(max_length=255, null=True, blank=True)
+    data_alteracao = models.DateTimeField(auto_now_add=True)
+    usuario = models.ForeignKey(User, on_delete=models.CASCADE)
+    
+    class Meta:
+        ordering = ['-data_alteracao']
+    
+    def __str__(self):
+        return f"{self.pedido} - {self.valor_anterior} -> {self.valor_novo} por {self.usuario.username}"

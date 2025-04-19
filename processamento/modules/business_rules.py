@@ -6,6 +6,7 @@ import numpy as np
 
 from .classification import (
     validar_data_tecnica,
+    estimativa_sae,
     ajustar_esteira,
     ajustar_rede_cadastrar,
     classificar_entrega,
@@ -290,14 +291,30 @@ def classify_record(record, criteria_matrix, pendencia_padrao):
 
 def processar_regras_negocio(df):
     """
-    Função responsável por todas as transformações e classificações dos dados.
+    Processa regras de negócio para classificação e agrupamento de pedidos
     """
     try:
         print("Iniciando processamento das regras de negócio...")
         print(f"Total de registros a processar: {len(df)}")
         print(f"Colunas disponíveis: {df.columns.tolist()}")
         
-        # Define a coluna 'pedido' como índice
+        # Verificar se a coluna pedido existe e criar uma cópia do dataframe original
+        df_original = df.copy()
+        
+        # Se pedido não estiver no dataframe, usar o índice atual ou criar um novo
+        if 'pedido' not in df.columns:
+            # Se o índice atual não for o padrão (RangeIndex), use-o como pedido
+            if not isinstance(df.index, pd.RangeIndex):
+                df['pedido'] = df.index
+            else:
+                # Caso contrário, use o id como pedido
+                if 'id' in df.columns:
+                    df['pedido'] = df['id']
+                else:
+                    # Ou crie um novo ID sequencial como último recurso
+                    df['pedido'] = [f"AUTO_{i}" for i in range(len(df))]
+        
+        # Agora podemos definir o índice com segurança
         df = df.set_index('pedido')
         print("Índice definido como 'pedido'")
         
@@ -311,9 +328,6 @@ def processar_regras_negocio(df):
         try:
             df.loc[:, 'tipo_entrega'] = df.apply(classificar_entrega, axis=1)
             print("tipo_entrega aplicado")
-            
-            df.loc[:, 'data_sae'] = df.apply(validar_data_tecnica, axis=1)
-            print("data_sae aplicado")
             
             df.loc[:, 'esteira'] = df.apply(ajustar_esteira, axis=1)
             print("esteira ajustada")
@@ -345,6 +359,11 @@ def processar_regras_negocio(df):
                 df.at[idx, 'estimativa'] = resultado['estimativa']
             
             print("Classificação geral aplicada")
+
+            df.loc[:, 'data_sae'] = df.apply(estimativa_sae, axis=1)
+            print("data_sae aplicado")
+            
+
         except Exception as e:
             print(f"Erro na classificação geral: {str(e)}")
             raise

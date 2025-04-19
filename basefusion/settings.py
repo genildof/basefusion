@@ -12,21 +12,37 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+import environ
+
+# Inicializar o environ
+env = environ.Env(
+    # definir valores padrão
+    DEBUG=(bool, False),
+    ALLOWED_HOSTS=(list, ['*']),
+    SECRET_KEY=(str, 'django-insecure-x)di0zp46o^we(%h@mfybt7dilgpir!qz0t#ap27ec4%7os0m!'),
+    DATABASE_URL=(str, 'sqlite:///db.sqlite3'),
+    EASYPANEL_DOMAIN=(str, ''),
+)
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
+# Carregar variáveis de ambiente do arquivo .env, se existir
+environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-x)di0zp46o^we(%h@mfybt7dilgpir!qz0t#ap27ec4%7os0m!'
+SECRET_KEY = env('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env('DEBUG')
 
-ALLOWED_HOSTS = []
+# Adicionar domínio do EasyPanel aos hosts permitidos, se fornecido
+allowed_hosts = env('ALLOWED_HOSTS')
+easypanel_domain = env('EASYPANEL_DOMAIN')
+if easypanel_domain and easypanel_domain not in allowed_hosts:
+    allowed_hosts.append(easypanel_domain)
+
+ALLOWED_HOSTS = allowed_hosts
 
 
 # Application definition
@@ -43,12 +59,14 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Adicionar o Whitenoise
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'processamento.views.PerfilMiddleware',
 ]
 
 ROOT_URLCONF = 'basefusion.urls'
@@ -75,10 +93,7 @@ WSGI_APPLICATION = 'basefusion.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': env.db(),
 }
 
 
@@ -119,10 +134,14 @@ USE_TZ = True
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
 ]
+
+# Configuração do Whitenoise
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -131,9 +150,24 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Configurações de Autenticação
 LOGIN_URL = 'login'
-LOGIN_REDIRECT_URL = 'processamento:base_consolidada'
+LOGIN_REDIRECT_URL = 'home'
 LOGOUT_REDIRECT_URL = 'login'
 
 # Configurações de Sessão
 SESSION_COOKIE_AGE = 3600  # 1 hora
 SESSION_SAVE_EVERY_REQUEST = True
+
+# Configurações de Segurança para Produção
+if not DEBUG:
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = True
+    SECURE_SSL_REDIRECT = False  # Mudamos para False propositalmente para ambiente sem HTTPS
+    SECURE_HSTS_SECONDS = 31536000  # 1 ano
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_BROWSER_XSS_FILTER = True
+    X_FRAME_OPTIONS = 'DENY'
+    
+    # Silenciamos avisos específicos
+    SILENCED_SYSTEM_CHECKS = ['security.W008', 'security.W009']

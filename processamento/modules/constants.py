@@ -59,10 +59,30 @@ DIAS_CARTEIRA_CRITICO = 14  # Número de dias para alerta vermelho
 
 # Constantes para status de pedidos
 PENDENCIAS_MACRO = [
-    'Agendado/Em agendamento',
+    'Agendado/Em Agendamento',
     'Retorno PCC/Planejamento - Revisar'
 ]
 
 # Constantes para classificação
 CLASSIFICACAO_TECNICA = 'Tecnica'
 ESTEIRA_PE = 'PE'
+
+# Lista completa de valores distintos de pendencia_macro
+PENDENCIAS_MACRO_OPCOES = [
+    "Agendado/Em Agendamento",
+    "Cancelado",
+    "Centralizado/Planejamento",
+    "Entregue",
+    "Infra/Bloqueio GB/Plataforma",
+    "Engenharia/Rede IP/Transporte",
+    "Capacitação/Filiação",
+    "DWDM/SWT Grande Porte"
+    "PABX Pendente",
+    "Pend Cliente/Comercial",
+    "Rede Externa",
+    "SIP/PABX - Agendar",
+    "Retorno PCC/Planejamento - Revisar",
+    "Sem ETP emitido - Devolver",
+    "VGR - Agendar",
+    "Vistoria"
+]
