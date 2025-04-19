@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     libpq-dev \
     curl \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Definir variáveis de ambiente
@@ -15,12 +16,14 @@ ENV DJANGO_SETTINGS_MODULE=basefusion.settings
 # Definir diretório de trabalho
 WORKDIR /app
 
-# Copiar requirements.txt primeiro para aproveitar o cache de camadas do Docker
-COPY requirements.txt /app/
-RUN pip install --no-cache-dir -r requirements.txt
+# Clonar o repositório (substitua a URL pelo seu repositório real)
+# Se você quiser usar uma branch específica, adicione -b branch_name
+ARG REPO_URL=https://github.com/genildof/basefusion.git
+ARG BRANCH=main
+RUN git clone --depth 1 -b ${BRANCH} ${REPO_URL} .
 
-# Copiar o resto dos arquivos do projeto
-COPY . /app/
+# Instalar dependências Python
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Criar diretórios necessários se não existirem
 RUN mkdir -p /app/staticfiles /app/data /app/media /app/static

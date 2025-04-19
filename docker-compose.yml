@@ -5,6 +5,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - REPO_URL=${REPO_URL:-https://github.com/genildof/basefusion.git}
+        - BRANCH=${BRANCH:-main}
     image: basefusion:latest
     container_name: basefusion
     restart: unless-stopped
