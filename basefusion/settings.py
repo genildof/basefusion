@@ -159,8 +159,14 @@ SESSION_SAVE_EVERY_REQUEST = True
 
 # Configurações de Segurança para Produção
 if not DEBUG:
-    CSRF_COOKIE_SECURE = True
-    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = False  # Alterado para False em produção temporariamente
+    CSRF_TRUSTED_ORIGINS = [f"http://{host}" for host in env('ALLOWED_HOSTS')] + [f"https://{host}" for host in env('ALLOWED_HOSTS')]
+
+    if env('EASYPANEL_DOMAIN'):
+        CSRF_TRUSTED_ORIGINS.append(f"http://{env('EASYPANEL_DOMAIN')}")
+        CSRF_TRUSTED_ORIGINS.append(f"https://{env('EASYPANEL_DOMAIN')}")
+
+    SESSION_COOKIE_SECURE = False  # Alterado para False em produção temporariamente
     SECURE_SSL_REDIRECT = False  # Mudamos para False propositalmente para ambiente sem HTTPS
     SECURE_HSTS_SECONDS = 31536000  # 1 ano
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
