@@ -160,12 +160,6 @@ SESSION_SAVE_EVERY_REQUEST = True
 # Configurações de Segurança para Produção
 if not DEBUG:
     CSRF_COOKIE_SECURE = False  # Alterado para False em produção temporariamente
-    CSRF_TRUSTED_ORIGINS = [f"http://{host}" for host in env('ALLOWED_HOSTS')] + [f"https://{host}" for host in env('ALLOWED_HOSTS')]
-
-    if env('EASYPANEL_DOMAIN'):
-        CSRF_TRUSTED_ORIGINS.append(f"http://{env('EASYPANEL_DOMAIN')}")
-        CSRF_TRUSTED_ORIGINS.append(f"https://{env('EASYPANEL_DOMAIN')}")
-
     SESSION_COOKIE_SECURE = False  # Alterado para False em produção temporariamente
     SECURE_SSL_REDIRECT = False  # Mudamos para False propositalmente para ambiente sem HTTPS
     SECURE_HSTS_SECONDS = 31536000  # 1 ano
@@ -177,3 +171,20 @@ if not DEBUG:
     
     # Silenciamos avisos específicos
     SILENCED_SYSTEM_CHECKS = ['security.W008', 'security.W009']
+
+# Configurações específicas para debug
+if DEBUG:
+    CSRF_COOKIE_SECURE = False
+    SESSION_COOKIE_SECURE = False
+    # Em ambiente de desenvolvimento, vamos desativar a proteção CSRF para diagnóstico
+    MIDDLEWARE = [middleware for middleware in MIDDLEWARE if middleware != 'django.middleware.csrf.CsrfViewMiddleware']
+else:
+    # Configuração CSRF global para todos os ambientes
+    CSRF_TRUSTED_ORIGINS = []
+    for host in ALLOWED_HOSTS:
+        CSRF_TRUSTED_ORIGINS.append(f"http://{host}")
+        CSRF_TRUSTED_ORIGINS.append(f"https://{host}")
+
+    if env('EASYPANEL_DOMAIN', default=''):
+        CSRF_TRUSTED_ORIGINS.append(f"http://{env('EASYPANEL_DOMAIN')}")
+        CSRF_TRUSTED_ORIGINS.append(f"https://{env('EASYPANEL_DOMAIN')}")
