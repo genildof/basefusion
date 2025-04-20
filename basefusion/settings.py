@@ -172,19 +172,31 @@ if not DEBUG:
     # Silenciamos avisos específicos
     SILENCED_SYSTEM_CHECKS = ['security.W008', 'security.W009']
 
+# Configuração CSRF principal que se aplica independentemente do modo DEBUG
+CSRF_TRUSTED_ORIGINS = [
+    'https://fieldmanager-basefusion.id9gln.easypanel.host',
+    'http://fieldmanager-basefusion.id9gln.easypanel.host'
+]
+
+# Adiciona outros hosts do ALLOWED_HOSTS
+for host in ALLOWED_HOSTS:
+    if host not in ['localhost', '127.0.0.1', '0.0.0.0']:  # Evitar hosts locais duplicados
+        CSRF_TRUSTED_ORIGINS.append(f"http://{host}")
+        CSRF_TRUSTED_ORIGINS.append(f"https://{host}")
+
 # Configurações específicas para debug
 if DEBUG:
     CSRF_COOKIE_SECURE = False
     SESSION_COOKIE_SECURE = False
-    # Em ambiente de desenvolvimento, vamos desativar a proteção CSRF para diagnóstico
-    MIDDLEWARE = [middleware for middleware in MIDDLEWARE if middleware != 'django.middleware.csrf.CsrfViewMiddleware']
 else:
-    # Configuração CSRF global para todos os ambientes
-    CSRF_TRUSTED_ORIGINS = []
-    for host in ALLOWED_HOSTS:
-        CSRF_TRUSTED_ORIGINS.append(f"http://{host}")
-        CSRF_TRUSTED_ORIGINS.append(f"https://{host}")
-
-    if env('EASYPANEL_DOMAIN', default=''):
-        CSRF_TRUSTED_ORIGINS.append(f"http://{env('EASYPANEL_DOMAIN')}")
-        CSRF_TRUSTED_ORIGINS.append(f"https://{env('EASYPANEL_DOMAIN')}")
+    # Outras configurações de segurança para produção que não afetam o CSRF
+    SECURE_SSL_REDIRECT = False  # Mudamos para False propositalmente para ambiente sem HTTPS
+    SECURE_HSTS_SECONDS = 31536000  # 1 ano
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_BROWSER_XSS_FILTER = True
+    X_FRAME_OPTIONS = 'DENY'
+    
+    # Silenciamos avisos específicos
+    SILENCED_SYSTEM_CHECKS = ['security.W008', 'security.W009']
