@@ -10,9 +10,9 @@ RUN apt-get update && apt-get install -y \
     && localedef -i pt_BR -c -f UTF-8 -A /usr/share/locale/locale.alias pt_BR.UTF-8
 
 # Configurar variáveis de ambiente para locale
-ENV LANG pt_BR.UTF-8
-ENV LANGUAGE pt_BR:pt
-ENV LC_ALL pt_BR.UTF-8
+ENV LANG=pt_BR.UTF-8
+ENV LANGUAGE=pt_BR:pt
+ENV LC_ALL=pt_BR.UTF-8
 
 # Definir variáveis de ambiente
 ENV PYTHONDONTWRITEBYTECODE=1
