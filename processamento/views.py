@@ -34,6 +34,10 @@ from django.contrib.auth.forms import UserCreationForm
 from django import forms
 from django.contrib.auth import logout
 from .modules.constants import PENDENCIAS_MACRO_OPCOES
+from pathlib import Path
+
+# Definir BASE_DIR
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Verificações de perfil de usuário
 def is_supervisor(user):
@@ -1159,7 +1163,7 @@ def exportar_base_excel(request):
             df[col] = df[col].fillna('')
         
         # Define o caminho do arquivo modelo
-        arquivo_modelo = os.path.join(settings.MEDIA_ROOT, 'modelos', 'modelo_batimento.xlsx')
+        arquivo_modelo = os.path.join(BASE_DIR, 'processamento', 'modelos', 'modelo_batimento.xlsx')
         
         # Gera o nome do arquivo com timestamp
         now = datetime.now()
