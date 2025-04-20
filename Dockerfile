@@ -1,11 +1,18 @@
 FROM python:3.10-slim
 
-# Instalar dependências do sistema
+# Instalar dependências do sistema e configurar locale
 RUN apt-get update && apt-get install -y \
     build-essential \
     libpq-dev \
     curl \
-    && rm -rf /var/lib/apt/lists/*
+    locales \
+    && rm -rf /var/lib/apt/lists/* \
+    && localedef -i pt_BR -c -f UTF-8 -A /usr/share/locale/locale.alias pt_BR.UTF-8
+
+# Configurar variáveis de ambiente para locale
+ENV LANG pt_BR.UTF-8
+ENV LANGUAGE pt_BR:pt
+ENV LC_ALL pt_BR.UTF-8
 
 # Definir variáveis de ambiente
 ENV PYTHONDONTWRITEBYTECODE=1

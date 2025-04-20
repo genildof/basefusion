@@ -4,7 +4,18 @@ from dateutil.relativedelta import relativedelta
 import locale
 
 # Definir a localidade para português do Brasil
-locale.setlocale(locale.LC_TIME, 'pt_BR.utf8')
+try:
+    locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
+except locale.Error:
+    try:
+        locale.setlocale(locale.LC_TIME, 'pt_BR.utf8')
+    except locale.Error:
+        try:
+            locale.setlocale(locale.LC_TIME, 'Portuguese_Brazil.1252')
+        except locale.Error:
+            # Fallback para o locale padrão se nenhum dos anteriores funcionar
+            locale.setlocale(locale.LC_TIME, '')
+            print("Atenção: Não foi possível configurar o locale para português brasileiro. Usando locale padrão.")
 
 # Função para obter o nome do mês seguinte
 def mes_seguinte():
