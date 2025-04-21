@@ -1175,9 +1175,9 @@ def exportar_base_excel(request):
             if not os.path.exists(arquivo_modelo):
                 raise FileNotFoundError(f"Arquivo modelo não encontrado em {arquivo_modelo}")
         
-        # Gera o nome do arquivo com timestamp
+        # Gera o nome do arquivo com timestamp completo (ano, mês, dia, hora, minuto)
         now = datetime.now()
-        formatted_date = now.strftime("%d_%m_%H_%M")
+        formatted_date = now.strftime("%Y%m%d_%H%M")
         arquivo_saida = f"base_batimento_report_{formatted_date}.xlsx"
         
         # Copia o arquivo modelo 
@@ -1219,30 +1219,43 @@ def exportar_base_excel(request):
         if not os.path.exists(arquivo_saida):
             raise FileNotFoundError(f"Arquivo de saída {arquivo_saida} não foi criado corretamente.")
         
-        # Lê o arquivo para download
-        with open(arquivo_saida, 'rb') as f:
-            file_data = f.read()
-            response = HttpResponse(file_data, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-            response['Content-Disposition'] = f'attachment; filename={arquivo_saida}'
-        
-        # Remove o arquivo temporário depois de ter lido os dados
+        # Prepara o arquivo para download
         try:
-            os.remove(arquivo_saida)
+            with open(arquivo_saida, 'rb') as f:
+                # Lê todo o conteúdo do arquivo para memória
+                file_data = f.read()
+            
+            # Cria a resposta HTTP com o conteúdo do arquivo
+            response = HttpResponse(
+                file_data,
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+            
+            # Define o cabeçalho para download
+            response['Content-Disposition'] = f'attachment; filename="{arquivo_saida}"'
+            response['Content-Length'] = os.path.getsize(arquivo_saida)
+            
+            # Remove o arquivo temporário depois de ter lido os dados
+            try:
+                os.remove(arquivo_saida)
+            except Exception as e:
+                print(f"Erro ao remover arquivo temporário {arquivo_saida}: {str(e)}")
+            
+            # Calcula o tempo de processamento
+            end_time = time.time()
+            tempo_processamento = end_time - start_time
+            
+            # Atualiza o log com o resultado
+            log.status = "CONCLUIDO"
+            log.mensagem = f"Exportação da base consolidada concluída com sucesso. Arquivo: {arquivo_saida}"
+            log.registros_afetados = BaseConsolidada.objects.count()
+            log.tempo_processamento = tempo_processamento
+            log.save()
+            
+            # Retorna a resposta com o arquivo
+            return response
         except Exception as e:
-            print(f"Erro ao remover arquivo temporário {arquivo_saida}: {str(e)}")
-        
-        # Calcula o tempo de processamento
-        end_time = time.time()
-        tempo_processamento = end_time - start_time
-        
-        # Atualiza o log com o resultado
-        log.status = "CONCLUIDO"
-        log.mensagem = f"Exportação da base consolidada concluída com sucesso. Arquivo: {arquivo_saida}"
-        log.registros_afetados = BaseConsolidada.objects.count()
-        log.tempo_processamento = tempo_processamento
-        log.save()
-        
-        return response
+            raise IOError(f"Erro ao ler o arquivo para download: {str(e)}")
         
     except Exception as e:
         # Em caso de erro, registra no log
@@ -1259,6 +1272,7 @@ def exportar_base_excel(request):
                 usuario=request.user
             )
         
+        # Registra mensagem de erro e redireciona
         messages.error(request, f'Erro ao exportar base: {str(e)}')
         return redirect('upload_arquivos')
 

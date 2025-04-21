@@ -261,17 +261,31 @@ document.addEventListener('DOMContentLoaded', function() {
             
             xhr.onload = function() {
                 if (this.status === 200) {
+                    // Obter o nome do arquivo do cabeçalho de resposta
+                    let filename = 'base_consolidada.xlsx';
+                    const disposition = xhr.getResponseHeader('Content-Disposition');
+                    if (disposition && disposition.indexOf('attachment') !== -1) {
+                        const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+                        const matches = filenameRegex.exec(disposition);
+                        if (matches != null && matches[1]) { 
+                            filename = matches[1].replace(/['"]/g, '');
+                        }
+                    }
+                    
                     // Criar URL para o blob
                     const blob = new Blob([this.response], { 
                         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
                     });
                     const url = window.URL.createObjectURL(blob);
                     
+                    // Atualizar mensagem de progresso
+                    progressMessage.textContent = 'Arquivo pronto! Iniciando download...';
+                    
                     // Criar link para download e clicar nele automaticamente
                     const a = document.createElement('a');
                     a.style.display = 'none';
                     a.href = url;
-                    a.download = 'base_consolidada.xlsx';
+                    a.download = filename;
                     document.body.appendChild(a);
                     a.click();
                     
@@ -281,7 +295,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         document.body.removeChild(a);
                         // Fechar a modal após o download começar
                         progressModal.hide();
-                    }, 100);
+                    }, 1000); // Aumentar para dar tempo de ver a mensagem de conclusão
                 } else {
                     console.error('Erro ao baixar o arquivo');
                     progressModal.hide();
@@ -295,12 +309,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert('Ocorreu um erro durante a exportação da base. Por favor, tente novamente.');
             };
             
-            // Garantir que a modal seja fechada mesmo que a requisição demore muito
-            setTimeout(function() {
-                if (progressModal._isShown) {
-                    progressModal.hide();
-                }
-            }, 30000); // 30 segundos de timeout
+            // Não fechar a modal automaticamente, vamos deixar que o download a feche
+            // ou que o usuário feche manualmente se demorar muito
             
             xhr.send();
         });
