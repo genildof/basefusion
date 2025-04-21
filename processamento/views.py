@@ -1147,6 +1147,10 @@ def exportar_base_excel(request):
         # Converte para DataFrame
         df = pd.DataFrame(list(registros.values()))
         
+        if len(df) == 0:
+            messages.warning(request, 'Não há dados na Base Consolidada para exportar.')
+            return redirect('upload_arquivos')
+        
         # Remove colunas indesejadas
         colunas_remover = ['id', 'created_at', 'updated_at']
         df = df.drop(columns=[col for col in colunas_remover if col in df.columns])
@@ -1163,57 +1167,65 @@ def exportar_base_excel(request):
             df[col] = df[col].fillna('')
         
         # Define o caminho do arquivo modelo
-        arquivo_modelo = os.path.join(settings.BASE_DIR, 'processamento', 'modelos', 'modelo_batimento.xlsx')
-        print(f"Caminho do modelo: {arquivo_modelo}")
+        arquivo_modelo = os.path.join(settings.MEDIA_ROOT, 'modelos', 'modelo_batimento.xlsx')
+        
+        # Verifica se o arquivo modelo existe
+        if not os.path.exists(arquivo_modelo):
+            arquivo_modelo = os.path.join(BASE_DIR, 'processamento', 'modelos', 'modelo_batimento.xlsx')
+            if not os.path.exists(arquivo_modelo):
+                raise FileNotFoundError(f"Arquivo modelo não encontrado em {arquivo_modelo}")
         
         # Gera o nome do arquivo com timestamp
         now = datetime.now()
         formatted_date = now.strftime("%d_%m_%H_%M")
         arquivo_saida = f"base_batimento_report_{formatted_date}.xlsx"
         
-        # Copia o arquivo modelo usando shutil.copy2 para preservar metadados
+        # Copia o arquivo modelo 
         import shutil
         shutil.copy2(arquivo_modelo, arquivo_saida)
         
         # Carrega o arquivo copiado
         livro = openpyxl.load_workbook(arquivo_saida)
         
-        # Verifica se a aba existe
+        # Verifica se a planilha existe
         if 'Base_Consolidada' not in livro.sheetnames:
-            sheet = livro.active
-            sheet.title = 'Base_Consolidada'
-        else:
-            sheet = livro['Base_Consolidada']
+            raise ValueError(f"Aba 'Base_Consolidada' não encontrada no arquivo modelo.")
+        
+        sheet = livro['Base_Consolidada']
         
         # Limpa o conteúdo existente (exceto cabeçalhos)
         if sheet.max_row > 1:
             sheet.delete_rows(2, sheet.max_row - 1)
         
-        # Escreve os cabeçalhos se a planilha estiver vazia
-        if sheet.max_row == 0:
-            for j, coluna in enumerate(df.columns, start=1):
-                sheet.cell(row=1, column=j, value=coluna)
-        
-        # Atualiza os dados
-        for i, row in enumerate(df.values, start=2):
-            for j, value in enumerate(row, start=1):
-                sheet.cell(row=i, column=j, value=value)
+        # Verificar se há dados no DataFrame
+        if not df.empty:
+            # Garantir que temos os cabeçalhos corretos
+            headers = [cell.value for cell in sheet[1]]
+            
+            # Se não houver cabeçalhos ou estiverem incorretos, adicioná-los
+            if not headers or len(headers) != len(df.columns):
+                for i, col_name in enumerate(df.columns, start=1):
+                    sheet.cell(row=1, column=i, value=col_name)
+            
+            # Atualiza os dados
+            for i, row in enumerate(df.values, start=2):
+                for j, value in enumerate(row, start=1):
+                    sheet.cell(row=i, column=j, value=value)
         
         # Salva o arquivo
         livro.save(arquivo_saida)
         
+        # Garante que o arquivo existe
+        if not os.path.exists(arquivo_saida):
+            raise FileNotFoundError(f"Arquivo de saída {arquivo_saida} não foi criado corretamente.")
+        
         # Lê o arquivo para download
         with open(arquivo_saida, 'rb') as f:
-            conteudo = f.read()
-            
-        # Configura a resposta HTTP
-        response = HttpResponse(
-            content=conteudo,
-            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
-        response['Content-Disposition'] = f'attachment; filename="{arquivo_saida}"'
+            file_data = f.read()
+            response = HttpResponse(file_data, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            response['Content-Disposition'] = f'attachment; filename={arquivo_saida}'
         
-        # Remove o arquivo temporário
+        # Remove o arquivo temporário depois de ter lido os dados
         try:
             os.remove(arquivo_saida)
         except Exception as e:
