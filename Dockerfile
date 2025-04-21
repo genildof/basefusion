@@ -43,7 +43,7 @@ RUN python3 manage.py collectstatic --noinput
 # Expor a porta
 EXPOSE 8000
 
-# Criar arquivo de inicialização (sem criar usuário padrão)
+# Criar arquivo de inicialização com criação automática do usuário sysadmin
 RUN echo '#!/bin/bash\n\
 # Aguardar o banco de dados estar disponível\n\
 echo "Aguardando conexão com o PostgreSQL..."\n\
@@ -53,6 +53,9 @@ done\n\
 \n\
 echo "PostgreSQL conectado, executando migrações..."\n\
 python3 manage.py migrate --noinput\n\
+\n\
+echo "Criando usuário padrão sysadmin com perfil SUPERVISOR..."\n\
+python3 create_default_user.py\n\
 \n\
 echo "Iniciando servidor..."\n\
 exec gunicorn basefusion.wsgi:application --bind 0.0.0.0:8000 --workers=2 --threads=4 --worker-tmp-dir=/dev/shm --timeout=120 --max-requests 1000 --max-requests-jitter 50\n\
