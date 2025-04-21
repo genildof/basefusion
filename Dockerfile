@@ -38,7 +38,7 @@ COPY create_default_user.py /app/create_default_user.py
 RUN chmod +x /app/create_default_user.py
 
 # Executar collectstatic
-RUN python manage.py collectstatic --noinput
+RUN python3 manage.py collectstatic --noinput
 
 # Expor a porta
 EXPOSE 8000
@@ -52,10 +52,10 @@ while ! pg_isready -h fieldmanager_postgresql -U postgres -q; do\n\
 done\n\
 \n\
 echo "PostgreSQL conectado, executando migrações..."\n\
-python manage.py migrate --noinput\n\
+python3 manage.py migrate --noinput\n\
 \n\
 echo "Criando usuário padrão..."\n\
-python manage.py shell -c "from django.contrib.auth.models import User; from processamento.models import PerfilUsuario; u, created = User.objects.get_or_create(username=\"sysadmin\", defaults={\"is_superuser\": True, \"is_staff\": True, \"email\": \"sysadmin@example.com\"}); u.set_password(\"@Password22\"); u.save(); try: perfil = PerfilUsuario.objects.get(usuario=u); perfil.perfil = \"SUPERVISOR\"; perfil.save(); print(\"Perfil atualizado para SUPERVISOR\"); except PerfilUsuario.DoesNotExist: PerfilUsuario.objects.create(usuario=u, perfil=\"SUPERVISOR\"); print(\"Perfil SUPERVISOR criado para usuário sysadmin\");" \n\
+python3 manage.py shell -c "from django.contrib.auth.models import User; from processamento.models import PerfilUsuario; u, created = User.objects.get_or_create(username=\"sysadmin\", defaults={\"is_superuser\": True, \"is_staff\": True, \"email\": \"sysadmin@example.com\"}); u.set_password(\"@Password22\"); u.save(); perfil, created = PerfilUsuario.objects.get_or_create(usuario=u, defaults={\"perfil\": \"SUPERVISOR\"}); perfil.perfil = \"SUPERVISOR\"; perfil.save(); print(\"Usuário sysadmin configurado com perfil SUPERVISOR.\")" \n\
 \n\
 echo "Iniciando servidor..."\n\
 exec gunicorn basefusion.wsgi:application --bind 0.0.0.0:8000 --workers=2 --threads=4 --worker-tmp-dir=/dev/shm --timeout=120 --max-requests 1000 --max-requests-jitter 50\n\
