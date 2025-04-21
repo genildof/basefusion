@@ -1163,7 +1163,8 @@ def exportar_base_excel(request):
             df[col] = df[col].fillna('')
         
         # Define o caminho do arquivo modelo
-        arquivo_modelo = os.path.join(BASE_DIR, 'processamento', 'modelos', 'modelo_batimento.xlsx')
+        arquivo_modelo = os.path.join(settings.BASE_DIR, 'processamento', 'modelos', 'modelo_batimento.xlsx')
+        print(f"Caminho do modelo: {arquivo_modelo}")
         
         # Gera o nome do arquivo com timestamp
         now = datetime.now()
@@ -1175,12 +1176,23 @@ def exportar_base_excel(request):
         shutil.copy2(arquivo_modelo, arquivo_saida)
         
         # Carrega o arquivo copiado
-        livro = openpyxl.load_workbook(arquivo_saida, data_only=True)
-        sheet = livro['Base_Consolidada']
+        livro = openpyxl.load_workbook(arquivo_saida)
+        
+        # Verifica se a aba existe
+        if 'Base_Consolidada' not in livro.sheetnames:
+            sheet = livro.active
+            sheet.title = 'Base_Consolidada'
+        else:
+            sheet = livro['Base_Consolidada']
         
         # Limpa o conteúdo existente (exceto cabeçalhos)
         if sheet.max_row > 1:
             sheet.delete_rows(2, sheet.max_row - 1)
+        
+        # Escreve os cabeçalhos se a planilha estiver vazia
+        if sheet.max_row == 0:
+            for j, coluna in enumerate(df.columns, start=1):
+                sheet.cell(row=1, column=j, value=coluna)
         
         # Atualiza os dados
         for i, row in enumerate(df.values, start=2):
@@ -1192,8 +1204,14 @@ def exportar_base_excel(request):
         
         # Lê o arquivo para download
         with open(arquivo_saida, 'rb') as f:
-            response = HttpResponse(f.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-            response['Content-Disposition'] = f'attachment; filename={arquivo_saida}'
+            conteudo = f.read()
+            
+        # Configura a resposta HTTP
+        response = HttpResponse(
+            content=conteudo,
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="{arquivo_saida}"'
         
         # Remove o arquivo temporário
         try:
