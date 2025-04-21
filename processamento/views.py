@@ -1266,6 +1266,7 @@ def arquivo_detalhes(request, arquivo_id):
 # Função de logout personalizada que aceita métodos GET
 def custom_logout(request):
     logout(request)
+    messages.success(request, 'Você saiu do sistema com sucesso.')
     return redirect('login')
 
 @login_required
