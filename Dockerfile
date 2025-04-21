@@ -33,7 +33,7 @@ COPY . /app/
 # Criar diretórios necessários se não existirem
 RUN mkdir -p /app/staticfiles /app/data /app/media /app/static
 
-# Criar script para inicialização e criação de usuário padrão
+# Manter script para criação de usuário padrão (para execução manual)
 COPY create_default_user.py /app/create_default_user.py
 RUN chmod +x /app/create_default_user.py
 
@@ -43,7 +43,7 @@ RUN python3 manage.py collectstatic --noinput
 # Expor a porta
 EXPOSE 8000
 
-# Criar arquivo de inicialização
+# Criar arquivo de inicialização (sem criar usuário padrão)
 RUN echo '#!/bin/bash\n\
 # Aguardar o banco de dados estar disponível\n\
 echo "Aguardando conexão com o PostgreSQL..."\n\
@@ -53,9 +53,6 @@ done\n\
 \n\
 echo "PostgreSQL conectado, executando migrações..."\n\
 python3 manage.py migrate --noinput\n\
-\n\
-echo "Criando usuário padrão..."\n\
-python3 manage.py shell -c "from django.contrib.auth.models import User; from processamento.models import PerfilUsuario; u, created = User.objects.get_or_create(username=\"sysadmin\", defaults={\"is_superuser\": True, \"is_staff\": True, \"email\": \"sysadmin@example.com\"}); u.set_password(\"@Password22\"); u.save(); perfil, created = PerfilUsuario.objects.get_or_create(usuario=u, defaults={\"perfil\": \"SUPERVISOR\"}); perfil.perfil = \"SUPERVISOR\"; perfil.save(); print(\"Usuário sysadmin configurado com perfil SUPERVISOR.\")" \n\
 \n\
 echo "Iniciando servidor..."\n\
 exec gunicorn basefusion.wsgi:application --bind 0.0.0.0:8000 --workers=2 --threads=4 --worker-tmp-dir=/dev/shm --timeout=120 --max-requests 1000 --max-requests-jitter 50\n\

@@ -14,6 +14,7 @@ services:
       - ./data:/app/data
       - ./media:/app/media
       - ./static:/app/static
+      - app_data:/app/data
     environment:
       - DEBUG=False
       - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0,${EASYPANEL_DOMAIN:-basefusion.local}
@@ -50,6 +51,9 @@ services:
 
 volumes:
   postgres_data:
+    name: basefusion_postgres_data
+  app_data:
+    name: basefusion_app_data
 
 networks:
   app-network:

@@ -1,48 +1,76 @@
-# Sistema de Processamento de Dados
+# BaseFusion
 
-Este sistema permite o processamento e análise de dados de planilhas Excel, com foco em dados de pedidos e status.
+Sistema de gerenciamento e processamento de dados para acompanhamento de pedidos.
 
 ## Requisitos
 
-- Python 3.8 ou superior
-- pip (gerenciador de pacotes Python)
-- virtualenv (opcional, mas recomendado)
+- Docker
+- Docker Compose
 
-## Instalação
+## Configuração e Execução
 
 1. Clone o repositório:
+   ```bash
+   git clone https://github.com/seu-usuario/basefusion.git
+   cd basefusion
+   ```
+
+2. Execute o projeto com Docker Compose:
+   ```bash
+   docker-compose up -d
+   ```
+
+3. Acesse o sistema em:
+   ```
+   http://localhost:8000
+   ```
+
+## Persistência de Dados
+
+O sistema está configurado para manter os dados persistentes entre deployments. Os volumes Docker seguintes são usados:
+
+- `basefusion_postgres_data`: Armazena os dados do banco PostgreSQL
+- `basefusion_app_data`: Armazena os dados da aplicação 
+- `./media`: Armazena os arquivos de mídia
+- `./static`: Armazena os arquivos estáticos
+
+Estes volumes garantem que os dados não sejam perdidos quando os containers são recriados.
+
+## Criação do Usuário Padrão
+
+O sistema não cria automaticamente o usuário padrão durante o deploy para evitar a reconfiguração de usuários existentes. Para criar o usuário padrão manualmente, siga os passos abaixo:
+
+1. Certifique-se de que os containers estejam em execução:
+   ```bash
+   docker ps
+   ```
+
+2. Execute o script de criação de usuário:
+   ```bash
+   ./create_user.sh
+   ```
+
+Isso criará um usuário com as seguintes credenciais:
+- **Usuário**: sysadmin
+- **Senha**: @Password22
+- **Perfil**: SUPERVISOR
+
+## Recriando a aplicação sem perder dados
+
+Para atualizar a aplicação sem perder dados:
+
 ```bash
-git clone https://github.com/genildof/basefusion.git
-cd basefusion
+# Parar os containers
+docker-compose down
+
+# Reconstruir a imagem
+docker-compose build
+
+# Iniciar os containers novamente
+docker-compose up -d
 ```
 
-2. Crie e ative um ambiente virtual (recomendado):
-```bash
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# ou
-venv\Scripts\activate  # Windows
-```
-
-3. Instale as dependências:
-```bash
-pip install -r requirements.txt
-```
-
-4. Execute as migrações do banco de dados:
-```bash
-python manage.py migrate
-```
-
-5. Crie um superusuário (opcional):
-```bash
-python manage.py createsuperuser
-```
-
-6. Inicie o servidor de desenvolvimento:
-```bash
-python manage.py runserver
-```
+Os dados persistirão graças aos volumes configurados.
 
 ## Funcionalidades
 

@@ -221,66 +221,164 @@ def atualizar_rede_externa(file_path):
         df = pd.read_excel(file_path, sheet_name=REDE_EXTERNA_SHEET)
         df = df.replace({np.nan: None})
         
-        # Verifica se as colunas necessárias existem
-        colunas_necessarias = ['PEDIDO', 'ANALISE 02', 'CONTRATADA', 'Prazo Rede']
-        colunas_faltantes = [col for col in colunas_necessarias if col not in df.columns]
+        # Obtém a lista de colunas disponíveis
+        colunas_disponiveis = list(df.columns)
+        
+        # Função auxiliar para encontrar colunas independente de maiúsculas/minúsculas
+        def encontrar_coluna(nome_coluna, colunas):
+            for col in colunas:
+                if col.lower() == nome_coluna.lower():
+                    return col
+            return None
+        
+        # Mapeia nomes de colunas para seus equivalentes no DataFrame
+        mapeamento_colunas = {
+            'PEDIDO': encontrar_coluna('PEDIDO', colunas_disponiveis),
+            'ANALISE 02': encontrar_coluna('ANALISE 02', colunas_disponiveis),
+            'CONTRATADA': encontrar_coluna('CONTRATADA', colunas_disponiveis),
+            'Prazo Rede': encontrar_coluna('Prazo Rede', colunas_disponiveis),
+            'ATP/OSX': encontrar_coluna('ATP/OSX', colunas_disponiveis),
+            'wcd': encontrar_coluna('wcd', colunas_disponiveis) or encontrar_coluna('WCD', colunas_disponiveis)
+        }
+        
+        # Verifica se as colunas necessárias existem (agora incluindo ATP/OSX e wcd)
+        colunas_necessarias = ['PEDIDO', 'ANALISE 02', 'CONTRATADA', 'Prazo Rede', 'ATP/OSX', 'wcd']
+        colunas_faltantes = [col for col in colunas_necessarias if mapeamento_colunas[col] is None]
         if colunas_faltantes:
             raise Exception(f"Colunas necessárias não encontradas no arquivo: {', '.join(colunas_faltantes)}")
         
-        # Lista de pedidos da base de Rede Externa
-        pedidos_rede = set(df['PEDIDO'].unique())
+        # Nome real das colunas no arquivo
+        coluna_pedido = mapeamento_colunas['PEDIDO']
+        coluna_analise = mapeamento_colunas['ANALISE 02']
+        coluna_contratada = mapeamento_colunas['CONTRATADA']
+        coluna_prazo = mapeamento_colunas['Prazo Rede']
+        coluna_atp_osx = mapeamento_colunas['ATP/OSX']
+        coluna_wcd = mapeamento_colunas['wcd']
         
-        # Lista de pedidos existentes na base do sistema
-        pedidos_base = set(BaseConsolidada.objects.values_list('pedido', flat=True))
+        # Cria dicionários para dados da base externa
+        dados_rede_por_pedido = {}
+        dados_rede_por_atp_osx = {}
+        dados_rede_por_wcd = {}
         
-        # Pedidos para atualizar (existem em ambas as bases)
-        pedidos_atualizar = pedidos_rede & pedidos_base
-        
-        # Cria um dicionário com os dados da base de Rede Externa
-        dados_rede = {}
+        # Processa os dados da base externa
         for _, row in df.iterrows():
             try:
-                pedido = str(row['PEDIDO']).strip()  # Garante que o pedido é string e remove espaços
-                if not pedido:  # Pula linhas com pedido vazio
+                pedido = str(row[coluna_pedido]).strip() if pd.notnull(row[coluna_pedido]) else ""
+                atp_osx = str(row[coluna_atp_osx]).strip() if pd.notnull(row[coluna_atp_osx]) else ""
+                wcd = str(row[coluna_wcd]).strip() if pd.notnull(row[coluna_wcd]) else ""
+                
+                # Pula linhas sem identificadores
+                if not pedido and not atp_osx and not wcd:
                     continue
                     
                 # Converte a data, tratando possíveis erros
                 data_rede = None
-                if pd.notnull(row['Prazo Rede']):
+                if pd.notnull(row[coluna_prazo]):
                     try:
-                        data_rede = pd.to_datetime(row['Prazo Rede']).date()
+                        data_rede = pd.to_datetime(row[coluna_prazo]).date()
                     except Exception as e:
                         warnings.warn(f"Erro ao converter data do pedido {pedido}: {str(e)}")
                 
-                dados_rede[pedido] = {
-                    'status_rede': str(row['ANALISE 02']).strip() if pd.notnull(row['ANALISE 02']) else None,
-                    'eps_rede': str(row['CONTRATADA']).strip() if pd.notnull(row['CONTRATADA']) else None,
+                dados_pedido = {
+                    'status_rede': str(row[coluna_analise]).strip() if pd.notnull(row[coluna_analise]) else None,
+                    'eps_rede': str(row[coluna_contratada]).strip() if pd.notnull(row[coluna_contratada]) else None,
                     'data_rede': data_rede
                 }
+                
+                # Armazena os dados por cada identificador
+                if pedido:
+                    dados_rede_por_pedido[pedido] = dados_pedido
+                if atp_osx:
+                    dados_rede_por_atp_osx[atp_osx] = dados_pedido
+                if wcd:
+                    dados_rede_por_wcd[wcd] = dados_pedido
+                    
             except Exception as e:
-                warnings.warn(f"Erro ao processar linha do pedido {row.get('PEDIDO', 'DESCONHECIDO')}: {str(e)}")
+                warnings.warn(f"Erro ao processar linha do pedido {row.get(coluna_pedido, 'DESCONHECIDO')}: {str(e)}")
                 continue
         
-        # Atualiza pedidos existentes
-        atualizados = 0
+        # Contadores para estatísticas
+        atualizados_por_pedido = 0
+        atualizados_por_atp_osx = 0
+        atualizados_por_wcd = 0
+        
+        # Conjunto para rastrear pedidos já atualizados (evita atualizações duplicadas)
+        pedidos_ja_atualizados = set()
+        
+        # Realiza as atualizações em uma única transação
         with transaction.atomic():
-            for pedido in pedidos_atualizar:
+            # 1. Atualização por número de pedido
+            for pedido, dados in dados_rede_por_pedido.items():
                 try:
-                    if pedido in dados_rede:  # Verifica se temos dados para este pedido
-                        BaseConsolidada.objects.filter(pedido=pedido).update(
-                            status_rede=dados_rede[pedido]['status_rede'],
-                            eps_rede=dados_rede[pedido]['eps_rede'],
-                            data_rede=dados_rede[pedido]['data_rede']
+                    registros = BaseConsolidada.objects.filter(pedido=pedido)
+                    if registros.exists():
+                        registros.update(
+                            status_rede=dados['status_rede'],
+                            eps_rede=dados['eps_rede'],
+                            data_rede=dados['data_rede']
                         )
-                        atualizados += 1
+                        atualizados_por_pedido += registros.count()
+                        # Adiciona aos pedidos já atualizados
+                        pedidos_ja_atualizados.add(pedido)
                 except Exception as e:
-                    warnings.warn(f"Erro ao atualizar pedido {pedido}: {str(e)}")
+                    warnings.warn(f"Erro ao atualizar por pedido {pedido}: {str(e)}")
+                    continue
+            
+            # 2. Atualização por ATP/OSX
+            for atp_osx, dados in dados_rede_por_atp_osx.items():
+                try:
+                    # Busca por num_atp ou osx, excluindo pedidos já atualizados
+                    registros = BaseConsolidada.objects.filter(
+                        Q(num_atp=atp_osx) | Q(osx=atp_osx)
+                    ).exclude(
+                        pedido__in=pedidos_ja_atualizados
+                    )
+                    
+                    if registros.exists():
+                        registros.update(
+                            status_rede=dados['status_rede'],
+                            eps_rede=dados['eps_rede'],
+                            data_rede=dados['data_rede']
+                        )
+                        # Adiciona os pedidos atualizados ao conjunto
+                        pedidos_atualizados = list(registros.values_list('pedido', flat=True))
+                        pedidos_ja_atualizados.update(pedidos_atualizados)
+                        atualizados_por_atp_osx += registros.count()
+                except Exception as e:
+                    warnings.warn(f"Erro ao atualizar por ATP/OSX {atp_osx}: {str(e)}")
+                    continue
+            
+            # 3. Atualização por WCD
+            for wcd, dados in dados_rede_por_wcd.items():
+                try:
+                    # Busca por wcd, excluindo pedidos já atualizados
+                    registros = BaseConsolidada.objects.filter(
+                        wcd=wcd
+                    ).exclude(
+                        pedido__in=pedidos_ja_atualizados
+                    )
+                    
+                    if registros.exists():
+                        registros.update(
+                            status_rede=dados['status_rede'],
+                            eps_rede=dados['eps_rede'],
+                            data_rede=dados['data_rede']
+                        )
+                        atualizados_por_wcd += registros.count()
+                except Exception as e:
+                    warnings.warn(f"Erro ao atualizar por WCD {wcd}: {str(e)}")
                     continue
         
+        total_atualizados = atualizados_por_pedido + atualizados_por_atp_osx + atualizados_por_wcd
+        
         return {
-            'total_rede': len(pedidos_rede),
-            'total_base': len(pedidos_base),
-            'atualizados': atualizados
+            'total_rede': len(dados_rede_por_pedido),
+            'registros_com_atp_osx': len(dados_rede_por_atp_osx),
+            'registros_com_wcd': len(dados_rede_por_wcd),
+            'atualizados_por_pedido': atualizados_por_pedido,
+            'atualizados_por_atp_osx': atualizados_por_atp_osx,
+            'atualizados_por_wcd': atualizados_por_wcd,
+            'total_atualizados': total_atualizados
         }
         
     except Exception as e:

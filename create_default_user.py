@@ -39,20 +39,17 @@ def create_default_user():
         
         # Verifica se o usuário já tem perfil
         try:
-            perfil = PerfilUsuario.objects.get(user__username="sysadmin")
+            perfil = PerfilUsuario.objects.get(usuario=user)
             # Atualiza o perfil para SUPERVISOR se necessário
-            if perfil.perfil != "SUPERVISOR" or not perfil.is_supervisor:
+            if perfil.perfil != "SUPERVISOR":
                 perfil.perfil = "SUPERVISOR"
-                perfil.is_supervisor = True
                 perfil.save()
                 print("Perfil do usuário sysadmin atualizado para SUPERVISOR!")
         except PerfilUsuario.DoesNotExist:
             # Cria perfil SUPERVISOR para o usuário
-            user = User.objects.get(username="sysadmin")
             perfil = PerfilUsuario.objects.create(
-                user=user,
-                perfil="SUPERVISOR",
-                is_supervisor=True
+                usuario=user,
+                perfil="SUPERVISOR"
             )
             print("Perfil SUPERVISOR criado para o usuário sysadmin!")
     except IntegrityError as e:
@@ -61,4 +58,6 @@ def create_default_user():
         print(f"Erro inesperado: {e}")
 
 if __name__ == "__main__":
-    create_default_user() 
+    print("Criando usuário padrão sysadmin...")
+    create_default_user()
+    print("Processo concluído.") 
