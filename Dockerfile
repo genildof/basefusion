@@ -34,59 +34,8 @@ COPY . /app/
 RUN mkdir -p /app/staticfiles /app/data /app/media /app/static
 
 # Criar script para inicialização e criação de usuário padrão
-RUN echo 'from django.contrib.auth.models import User\n\
-from processamento.models import PerfilUsuario\n\
-from django.db import IntegrityError\n\
-\n\
-def create_default_user():\n\
-    try:\n\
-        # Verifica se o usuário já existe\n\
-        if not User.objects.filter(username="sysadmin").exists():\n\
-            # Cria o usuário sysadmin\n\
-            user = User.objects.create_superuser(\n\
-                username="sysadmin",\n\
-                email="sysadmin@example.com",\n\
-                password="@Password22"\n\
-            )\n\
-            print("Usuário sysadmin criado com sucesso!")\n\
-        else:\n\
-            user = User.objects.get(username="sysadmin")\n\
-            # Garante que o usuário tem permissões de superuser\n\
-            if not user.is_superuser:\n\
-                user.is_superuser = True\n\
-                user.is_staff = True\n\
-                user.save()\n\
-                print("Usuário sysadmin atualizado para superuser!")\n\
-        \n\
-        # Verifica se o usuário já tem perfil\n\
-        try:\n\
-            perfil = PerfilUsuario.objects.get(user__username="sysadmin")\n\
-            # Atualiza o perfil para SUPERVISOR se necessário\n\
-            if perfil.perfil != "SUPERVISOR" or not perfil.is_supervisor:\n\
-                perfil.perfil = "SUPERVISOR"\n\
-                perfil.is_supervisor = True\n\
-                perfil.save()\n\
-                print("Perfil do usuário sysadmin atualizado para SUPERVISOR!")\n\
-        except PerfilUsuario.DoesNotExist:\n\
-            # Cria perfil SUPERVISOR para o usuário\n\
-            user = User.objects.get(username="sysadmin")\n\
-            perfil = PerfilUsuario.objects.create(\n\
-                user=user,\n\
-                perfil="SUPERVISOR",\n\
-                is_supervisor=True\n\
-            )\n\
-            print("Perfil SUPERVISOR criado para o usuário sysadmin!")\n\
-    except IntegrityError as e:\n\
-        print(f"Erro ao criar usuário padrão: {e}")\n\
-    except Exception as e:\n\
-        print(f"Erro inesperado: {e}")\n\
-\n\
-# Importamos aqui para garantir que o Django esteja configurado\n\
-if __name__ == "__main__":\n\
-    import django\n\
-    django.setup()\n\
-    create_default_user()\n\
-' > /app/create_default_user.py
+COPY create_default_user.py /app/create_default_user.py
+RUN chmod +x /app/create_default_user.py
 
 # Executar collectstatic
 RUN python manage.py collectstatic --noinput
@@ -106,7 +55,7 @@ echo "PostgreSQL conectado, executando migrações..."\n\
 python manage.py migrate --noinput\n\
 \n\
 echo "Criando usuário padrão..."\n\
-python create_default_user.py\n\
+python manage.py shell -c "from django.contrib.auth.models import User; from processamento.models import PerfilUsuario; u, created = User.objects.get_or_create(username=\"sysadmin\", defaults={\"is_superuser\": True, \"is_staff\": True, \"email\": \"sysadmin@example.com\"}); u.set_password(\"@Password22\"); u.save(); p, created = PerfilUsuario.objects.get_or_create(user=u, defaults={\"perfil\": \"SUPERVISOR\", \"is_supervisor\": True}); p.perfil = \"SUPERVISOR\"; p.is_supervisor = True; p.save(); print(\"Usuário sysadmin configurado.\")" \n\
 \n\
 echo "Iniciando servidor..."\n\
 exec gunicorn basefusion.wsgi:application --bind 0.0.0.0:8000 --workers=2 --threads=4 --worker-tmp-dir=/dev/shm --timeout=120 --max-requests 1000 --max-requests-jitter 50\n\
