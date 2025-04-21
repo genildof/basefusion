@@ -255,6 +255,9 @@ def atualizar_rede_externa(file_path):
         coluna_atp_osx = mapeamento_colunas['ATP/OSX']
         coluna_wcd = mapeamento_colunas['wcd']
         
+        # Total de registros na base do sistema (adicionado para evitar KeyError)
+        total_base = BaseConsolidada.objects.count()
+        
         # Cria dicionários para dados da base externa
         dados_rede_por_pedido = {}
         dados_rede_por_atp_osx = {}
@@ -373,6 +376,7 @@ def atualizar_rede_externa(file_path):
         
         return {
             'total_rede': len(dados_rede_por_pedido),
+            'total_base': total_base,
             'registros_com_atp_osx': len(dados_rede_por_atp_osx),
             'registros_com_wcd': len(dados_rede_por_wcd),
             'atualizados_por_pedido': atualizados_por_pedido,
