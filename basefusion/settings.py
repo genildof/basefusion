@@ -96,6 +96,30 @@ DATABASES = {
     'default': env.db(),
 }
 
+# Configurações para melhorar o desempenho com PostgreSQL
+if DATABASES['default']['ENGINE'] == 'django.db.backends.postgresql':
+    DATABASES['default']['CONN_MAX_AGE'] = 60  # Manter conexões por 60 segundos
+    DATABASES['default']['OPTIONS'] = {
+        'connect_timeout': 10,
+        'client_encoding': 'UTF8',
+    }
+    DATABASES['default']['ATOMIC_REQUESTS'] = False  # Evita que transações durem muito tempo
+    DATABASES['default']['AUTOCOMMIT'] = True  # Comportamento padrão do PostgreSQL
+
+# Configurar o pool de conexões para Postgres
+CONN_HEALTH_CHECKS = True
+
+# Cache para sessões para reduzir carga no banco de dados
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "unique-snowflake",
+    }
+}
+
+# Usar o cache para as sessões em vez do banco de dados
+SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
+SESSION_CACHE_ALIAS = "default"
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators

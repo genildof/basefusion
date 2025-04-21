@@ -17,11 +17,40 @@ services:
     environment:
       - DEBUG=False
       - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0,${EASYPANEL_DOMAIN:-basefusion.local}
-      - DATABASE_URL=sqlite:///data/db.sqlite3
+      - DATABASE_URL=postgres://postgres:@Password22@fieldmanager_postgresql:5432/basefusion
       - SECRET_KEY=${SECRET_KEY:-g=%jw)yyl1(_o16&ebdp=u4mc&!!e+s)3^!(s30szuwvrw#i$0}
+    depends_on:
+      - db
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 10s 
+      start_period: 10s
+    networks:
+      - app-network
+
+  db:
+    image: postgres:15-alpine
+    container_name: fieldmanager_postgresql
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=@Password22
+      - POSTGRES_DB=basefusion
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+
+networks:
+  app-network:
+    driver: bridge 
