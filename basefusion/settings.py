@@ -20,7 +20,6 @@ env = environ.Env(
     DEBUG=(bool, False),
     ALLOWED_HOSTS=(list, ['*']),
     SECRET_KEY=(str, 'django-insecure-x)di0zp46o^we(%h@mfybt7dilgpir!qz0t#ap27ec4%7os0m!'),
-    DATABASE_URL=(str, 'sqlite:///db.sqlite3'),
     EASYPANEL_DOMAIN=(str, ''),
 )
 
