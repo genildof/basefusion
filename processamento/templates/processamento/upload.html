@@ -3,68 +3,68 @@
 
 {% block title %}Upload de Arquivos{% endblock %}
 
-{% block extra_css %}{% endblock %}
-
 {% block content %}
-{{ block.super }}
-<div class="row mt-4">
-    <!-- Upload de Arquivos -->
-    <div class="col-md-12 mb-4">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Upload de Arquivos</h5>
-            </div>
-            <div class="card-body">
-                <form id="uploadForm" method="post" enctype="multipart/form-data">
-                    {% csrf_token %}
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="arquivo" class="form-label">Selecione o arquivo:</label>
-                                <input type="file" class="form-control" id="arquivo" name="arquivo" accept=".xlsx,.xls">
+<div class="container mt-4">
+    
+    <div class="row mt-4">
+        <!-- Upload de Arquivos -->
+        <div class="col-md-12 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Upload de Arquivos</h5>
+                </div>
+                <div class="card-body">
+                    <form id="uploadForm" method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="arquivo" class="form-label">Selecione o arquivo:</label>
+                                    <input type="file" class="form-control" id="arquivo" name="arquivo" accept=".xlsx,.xls">
+                                </div>
+                            </div>
+                            <div class="col-md-6 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary">Upload</button>
                             </div>
                         </div>
-                        <div class="col-md-6 d-flex align-items-end">
-                            <button type="submit" class="btn btn-primary">Upload</button>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Processar Regras e Exportar Base -->
-    <div class="col-md-12">
-        <div class="row">
-            <!-- Processar Regras -->
-            <div class="col-md-6 mb-4">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">Processar Regras de Negócio</h5>
-                    </div>
-                    <div class="card-body">
-                        <p>Clique no botão abaixo para processar as regras de negócio definidas no sistema.</p>
-                        <form id="regrasForm" method="post">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-warning" id="processarRegrasBtn">
-                                <i class="bi bi-gear"></i> Processar Regras
-                            </button>
-                        </form>
-                    </div>
+                    </form>
                 </div>
             </div>
-            
-            <!-- Exportar Base -->
-            <div class="col-md-6 mb-4">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">Exportar Base Consolidada</h5>
+        </div>
+        
+        <!-- Processar Regras e Exportar Base -->
+        <div class="col-md-12">
+            <div class="row">
+                <!-- Processar Regras -->
+                <div class="col-md-6 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">Processar Regras de Negócio</h5>
+                        </div>
+                        <div class="card-body">
+                            <p>Clique no botão abaixo para processar as regras de negócio definidas no sistema.</p>
+                            <form id="regrasForm" method="post">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-warning" id="processarRegrasBtn">
+                                    <i class="bi bi-gear"></i> Processar Regras
+                                </button>
+                            </form>
+                        </div>
                     </div>
-                    <div class="card-body">
-                        <p>Clique no botão abaixo para exportar a base consolidada para Excel.</p>
-                        <button id="exportarExcelBtn" class="btn btn-success">
-                            <i class="bi bi-download"></i> Exportar Base
-                        </button>
+                </div>
+                
+                <!-- Exportar Base -->
+                <div class="col-md-6 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">Exportar Base Consolidada</h5>
+                        </div>
+                        <div class="card-body">
+                            <p>Clique no botão abaixo para exportar a base consolidada para Excel.</p>
+                            <button id="exportarExcelBtn" class="btn btn-success">
+                                <i class="bi bi-download"></i> Exportar Base
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

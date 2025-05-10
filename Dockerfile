@@ -20,6 +20,10 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV DJANGO_SETTINGS_MODULE=basefusion.settings
 
+# Definir argumentos de build
+ARG DATABASE_URL
+ENV DATABASE_URL=${DATABASE_URL}
+
 # Definir diretório de trabalho
 WORKDIR /app
 
@@ -37,6 +41,9 @@ RUN mkdir -p /app/staticfiles /app/data /app/media /app/static
 COPY create_default_user.py /app/create_default_user.py
 RUN chmod +x /app/create_default_user.py
 
+# Executar collectstatic
+RUN python3 manage.py collectstatic --noinput
+
 # Expor a porta
 EXPOSE 8000
 
@@ -50,13 +57,10 @@ done\n\
 \n\
 echo "PostgreSQL conectado, executando migrações..."\n\
 python3 manage.py migrate --noinput\n\
-\
-echo "Executando collectstatic..."\n\
-python3 manage.py collectstatic --noinput\n\
-\
+\n\
 echo "Criando usuário padrão sysadmin com perfil SUPERVISOR..."\n\
 python3 create_default_user.py\n\
-\
+\n\
 echo "Iniciando servidor..."\n\
 exec gunicorn basefusion.wsgi:application --bind 0.0.0.0:8000 --workers=2 --threads=4 --worker-tmp-dir=/dev/shm --timeout=120 --max-requests 1000 --max-requests-jitter 50\n\
 ' > /app/entrypoint.sh \

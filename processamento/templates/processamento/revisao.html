@@ -101,56 +101,57 @@
 {% endblock %}
 
 {% block content %}
-{{ block.super }}
-<!-- Filtro de Tipo -->
-<div class="filtro-container">
-    <h5>Pedidos</h5>
-    <div class="d-flex">
-        <select class="form-select filtro-select me-2" id="tipoFiltro">
-            <option value="revisar">Pedidos a Revisar</option>
-            <option value="tecnica">Técnica</option>
-            <option value="todos">Todos</option>
-        </select>
-        <button id="btnExportarRevisao" class="btn btn-success">
-            <i class="bi bi-file-excel"></i> Exportar Dados
-        </button>
+<div class="container">
+    <!-- Filtro de Tipo -->
+    <div class="filtro-container">
+        <h5>Pedidos</h5>
+        <div class="d-flex">
+            <select class="form-select filtro-select me-2" id="tipoFiltro">
+                <option value="revisar">Pedidos a Revisar</option>
+                <option value="tecnica">Técnica</option>
+                <option value="todos">Todos</option>
+            </select>
+            <button id="btnExportarRevisao" class="btn btn-success">
+                <i class="bi bi-file-excel"></i> Exportar Dados
+            </button>
+        </div>
     </div>
-</div>
 
-<!-- Cards de Segmentos -->
-<div class="row mb-4" id="segmentosCards">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Segmentos</h5>
-                <div class="d-flex flex-wrap gap-2" id="segmentosContainer">
-                    <!-- Cards serão inseridos aqui via JavaScript -->
+    <!-- Cards de Segmentos -->
+    <div class="row mb-4" id="segmentosCards">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Segmentos</h5>
+                    <div class="d-flex flex-wrap gap-2" id="segmentosContainer">
+                        <!-- Cards serão inseridos aqui via JavaScript -->
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
-
-<!-- Tabela -->
-<div class="card mb-4">
-    <div class="card-header">
-        <h5 class="card-title mb-0">Pedidos</h5>
-    </div>
-    <div class="card-body">
-        <div class="table-responsive">
-            <table id="tabelaRevisao" class="table table-striped table-bordered">
-                <thead>
-                    <tr>
-                        <th>Pedido</th>
-                        <th>Dias Carteira</th>
-                        <th>Data Técnica</th>
-                        <th>Carteira</th>
-                        <th>Pendência Macro</th>
-                        <th>Estimativa</th>
-                        <th>Segmento V3</th>
-                    </tr>
-                </thead>
-            </table>
+    
+    <!-- Tabela -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Pedidos</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table id="tabelaRevisao" class="table table-striped table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Pedido</th>
+                            <th>Dias Carteira</th>
+                            <th>Data Técnica</th>
+                            <th>Carteira</th>
+                            <th>Pendência Macro</th>
+                            <th>Estimativa</th>
+                            <th>Segmento V3</th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
         </div>
     </div>
 </div>
