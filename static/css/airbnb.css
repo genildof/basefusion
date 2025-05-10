@@ -34,10 +34,25 @@ body {
     text-decoration: none;
 }
 
+.navbar-menu, .navbar-menu * {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    box-sizing: border-box;
+}
+
 .navbar-menu {
-    display: flex;
+    display: flex !important;
+    flex-direction: row !important;
     align-items: center;
     gap: 1.5rem;
+    width: 100%;
+}
+
+.navbar-menu a {
+    display: flex;
+    align-items: center;
+    height: 40px;
 }
 
 .navbar-menu a, .navbar-menu .dropdown {
