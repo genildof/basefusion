@@ -12,46 +12,33 @@
 </head>
 <body>
     <nav class="navbar">
-        <div class="container-fluid d-flex align-items-center justify-content-between">
-            <a class="navbar-brand d-flex align-items-center" href="{% url 'home' %}">
-                <i class="fa-solid fa-house-chimney" style="color:#FF385C;font-size:2rem;margin-right:0.5rem;"></i>
-                BaseFusion
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav flex-row">
-                    <li class="nav-item"><a class="nav-link" href="{% url 'home' %}">Home</a></li>
-                    {% if user.is_authenticated and user.perfil.is_supervisor %}
-                    <li class="nav-item"><a class="nav-link" href="{% url 'upload_arquivos' %}">Upload</a></li>
-                    {% endif %}
-                    <li class="nav-item"><a class="nav-link" href="{% url 'revisao' %}">Revisão</a></li>
-                    {% if user.is_authenticated and user.perfil.is_supervisor %}
-                    <li class="nav-item"><a class="nav-link" href="{% url 'lista_arquivos' %}">Arquivos Processados</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{% url 'lista_usuarios' %}">Usuários</a></li>
-                    {% endif %}
-                </ul>
-                <ul class="navbar-nav ms-auto flex-row">
-                    {% if user.is_authenticated %}
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="fa-solid fa-user-circle"></i> {{ user.username }}
-                            {% if user.perfil.is_supervisor %}
-                            <span class="badge bg-light text-primary">Supervisor</span>
-                            {% else %}
-                            <span class="badge bg-light text-success">Operador</span>
-                            {% endif %}
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="{% url 'custom_logout' %}">Sair</a></li>
-                        </ul>
-                    </li>
+        <a class="navbar-brand" href="{% url 'home' %}">
+            <i class="fa-solid fa-house-chimney" style="color:#FF385C;font-size:2rem;"></i>
+            BaseFusion
+        </a>
+        <div class="navbar-menu">
+            <a href="{% url 'home' %}">Home</a>
+            {% if user.is_authenticated and user.perfil.is_supervisor %}
+                <a href="{% url 'upload_arquivos' %}">Upload</a>
+            {% endif %}
+            <a href="{% url 'revisao' %}">Revisão</a>
+            {% if user.is_authenticated and user.perfil.is_supervisor %}
+                <a href="{% url 'lista_arquivos' %}">Arquivos Processados</a>
+                <a href="{% url 'lista_usuarios' %}">Usuários</a>
+            {% endif %}
+            <span class="navbar-user">
+                {% if user.is_authenticated %}
+                    <i class="fa-solid fa-user-circle"></i> {{ user.username }}
+                    {% if user.perfil.is_supervisor %}
+                        <span class="badge bg-light text-primary">Supervisor</span>
                     {% else %}
-                    <li class="nav-item"><a class="nav-link" href="{% url 'login' %}">Login</a></li>
+                        <span class="badge bg-light text-success">Operador</span>
                     {% endif %}
-                </ul>
-            </div>
+                    <a href="{% url 'custom_logout' %}" style="color:#FF385C;">Sair</a>
+                {% else %}
+                    <a href="{% url 'login' %}">Login</a>
+                {% endif %}
+            </span>
         </div>
     </nav>
 

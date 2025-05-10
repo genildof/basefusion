@@ -11,6 +11,9 @@ body {
 }
 
 .navbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     background: #fff;
     border-bottom: 1px solid #eee;
     box-shadow: 0 2px 4px rgba(0,0,0,0.03);
@@ -25,20 +28,39 @@ body {
     font-weight: 700;
     font-size: 1.7rem;
     letter-spacing: -1px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-decoration: none;
 }
 
-.navbar-nav .nav-link {
+.navbar-menu {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.navbar-menu a, .navbar-menu .dropdown {
     color: #222 !important;
     font-weight: 500;
-    margin-right: 1rem;
     border-radius: 22px;
     padding: 0.5rem 1.2rem;
+    text-decoration: none;
     transition: background 0.2s;
+    background: none;
+    border: none;
+    cursor: pointer;
 }
 
-.navbar-nav .nav-link.active, .navbar-nav .nav-link:hover {
+.navbar-menu a:hover, .navbar-menu .dropdown:hover {
     background: #F7F7F7;
     color: #FF385C !important;
+}
+
+.navbar-user {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
 .navbar-toggler {
@@ -109,6 +131,18 @@ footer.footer {
 ::-webkit-scrollbar-thumb {
     background: #eee;
     border-radius: 8px;
+}
+
+@media (max-width: 900px) {
+    .navbar {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 0.5rem 1rem;
+    }
+    .navbar-menu {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
 }
 
 @media (max-width: 768px) {
