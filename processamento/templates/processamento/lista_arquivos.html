@@ -59,169 +59,167 @@
 
 {% block content %}
 {{ block.super }}
-<div class="container">
-    <!-- Resumo de estatísticas -->
-    <div class="row mb-4">
-        <div class="col-md-6 mb-3">
-            <div class="card stats-card">
-                <div class="card-body card-body-compact">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h6 class="card-title mb-0">Total de Registros</h6>
-                        <span class="badge stats-badge">{{ total_arquivos }}</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6 mb-3">
-            <div class="card stats-card">
-                <div class="card-body card-body-compact">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h6 class="card-title mb-0">Registros Afetados</h6>
-                        <span class="badge stats-badge">{{ total_registros_afetados }}</span>
-                    </div>
+<!-- Resumo de estatísticas -->
+<div class="row mb-4">
+    <div class="col-md-6 mb-3">
+        <div class="card stats-card">
+            <div class="card-body card-body-compact">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="card-title mb-0">Total de Registros</h6>
+                    <span class="badge stats-badge">{{ total_arquivos }}</span>
                 </div>
             </div>
         </div>
     </div>
-    
-    <!-- Filtros -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5 class="card-title mb-0">Filtros</h5>
-        </div>
-        <div class="card-body">
-            <form method="get" class="row g-3">
-                <div class="col-md-3">
-                    <label for="tipo_arquivo" class="form-label">Tipo de Arquivo</label>
-                    <select name="tipo_arquivo" id="tipo_arquivo" class="form-select">
-                        <option value="">Todos</option>
-                        {% for key, value in tipos_arquivo %}
-                        <option value="{{ key }}" {% if tipo_arquivo_filtro == key %}selected{% endif %}>{{ value }}</option>
-                        {% endfor %}
-                    </select>
+    <div class="col-md-6 mb-3">
+        <div class="card stats-card">
+            <div class="card-body card-body-compact">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="card-title mb-0">Registros Afetados</h6>
+                    <span class="badge stats-badge">{{ total_registros_afetados }}</span>
                 </div>
-                <div class="col-md-3">
-                    <label for="status" class="form-label">Status</label>
-                    <select name="status" id="status" class="form-select">
-                        <option value="">Todos</option>
-                        {% for key, value in status_opcoes %}
-                        <option value="{{ key }}" {% if status_filtro == key %}selected{% endif %}>{{ value }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label for="data_inicio" class="form-label">Data Início</label>
-                    <input type="date" name="data_inicio" id="data_inicio" class="form-control" value="{{ data_inicio_filtro|date:'Y-m-d' }}">
-                </div>
-                <div class="col-md-3">
-                    <label for="data_fim" class="form-label">Data Fim</label>
-                    <input type="date" name="data_fim" id="data_fim" class="form-control" value="{{ data_fim_filtro|date:'Y-m-d' }}">
-                </div>
-                <div class="col-12">
-                    <button type="submit" class="btn btn-primary">Filtrar</button>
-                    <a href="{% url 'lista_arquivos' %}" class="btn btn-secondary">Limpar Filtros</a>
-                </div>
-            </form>
+            </div>
         </div>
     </div>
-    
-    <!-- Lista de Arquivos -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5 class="card-title mb-0">Arquivos Processados</h5>
-        </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table id="tabelaArquivos" class="table table-striped">
-                    <thead>
-                        <tr>
-                            <th>Data/Hora</th>
-                            <th>Nome</th>
-                            <th>Tipo</th>
-                            <th>Status</th>
-                            <th>Usuário</th>
-                            <th>Registros Afetados</th>
-                            <th>Tempo (s)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for arquivo in arquivos %}
-                        <tr class="{% if arquivo.status == 'ERRO' %}table-danger{% elif arquivo.status == 'CONCLUIDO' %}table-success{% elif arquivo.status == 'PROCESSANDO' %}table-warning{% endif %}">
-                            <td>{{ arquivo.data_processamento|date:"d/m/Y H:i:s" }}</td>
-                            <td>
-                                <a href="#" class="arquivo-detalhes" data-id="{{ arquivo.id }}" data-bs-toggle="modal" data-bs-target="#detalhesModal">
-                                    {{ arquivo.nome }}
-                                </a>
-                            </td>
-                            <td>
-                                {% for key, value in tipos_arquivo %}
-                                    {% if key == arquivo.tipo_arquivo %}
-                                        {{ value }}
-                                    {% endif %}
-                                {% endfor %}
-                            </td>
-                            <td>
-                                {% if arquivo.status == 'CONCLUIDO' %}
-                                <span class="badge bg-success">Concluído</span>
-                                {% elif arquivo.status == 'ERRO' %}
-                                <span class="badge bg-danger">Erro</span>
-                                {% elif arquivo.status == 'PROCESSANDO' %}
-                                <span class="badge bg-warning text-dark">Processando</span>
-                                {% else %}
-                                <span class="badge bg-secondary">Pendente</span>
+</div>
+
+<!-- Filtros -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="card-title mb-0">Filtros</h5>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label for="tipo_arquivo" class="form-label">Tipo de Arquivo</label>
+                <select name="tipo_arquivo" id="tipo_arquivo" class="form-select">
+                    <option value="">Todos</option>
+                    {% for key, value in tipos_arquivo %}
+                    <option value="{{ key }}" {% if tipo_arquivo_filtro == key %}selected{% endif %}>{{ value }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="status" class="form-label">Status</label>
+                <select name="status" id="status" class="form-select">
+                    <option value="">Todos</option>
+                    {% for key, value in status_opcoes %}
+                    <option value="{{ key }}" {% if status_filtro == key %}selected{% endif %}>{{ value }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="data_inicio" class="form-label">Data Início</label>
+                <input type="date" name="data_inicio" id="data_inicio" class="form-control" value="{{ data_inicio_filtro|date:'Y-m-d' }}">
+            </div>
+            <div class="col-md-3">
+                <label for="data_fim" class="form-label">Data Fim</label>
+                <input type="date" name="data_fim" id="data_fim" class="form-control" value="{{ data_fim_filtro|date:'Y-m-d' }}">
+            </div>
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary">Filtrar</button>
+                <a href="{% url 'lista_arquivos' %}" class="btn btn-secondary">Limpar Filtros</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Lista de Arquivos -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="card-title mb-0">Arquivos Processados</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table id="tabelaArquivos" class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Data/Hora</th>
+                        <th>Nome</th>
+                        <th>Tipo</th>
+                        <th>Status</th>
+                        <th>Usuário</th>
+                        <th>Registros Afetados</th>
+                        <th>Tempo (s)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for arquivo in arquivos %}
+                    <tr class="{% if arquivo.status == 'ERRO' %}table-danger{% elif arquivo.status == 'CONCLUIDO' %}table-success{% elif arquivo.status == 'PROCESSANDO' %}table-warning{% endif %}">
+                        <td>{{ arquivo.data_processamento|date:"d/m/Y H:i:s" }}</td>
+                        <td>
+                            <a href="#" class="arquivo-detalhes" data-id="{{ arquivo.id }}" data-bs-toggle="modal" data-bs-target="#detalhesModal">
+                                {{ arquivo.nome }}
+                            </a>
+                        </td>
+                        <td>
+                            {% for key, value in tipos_arquivo %}
+                                {% if key == arquivo.tipo_arquivo %}
+                                    {{ value }}
                                 {% endif %}
-                            </td>
-                            <td>{{ arquivo.usuario.username }}</td>
-                            <td>{{ arquivo.registros_afetados|default:'-' }}</td>
-                            <td>{{ arquivo.tempo_processamento|floatformat:2|default:'-' }}</td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="7" class="text-center">Nenhum arquivo processado encontrado.</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+                            {% endfor %}
+                        </td>
+                        <td>
+                            {% if arquivo.status == 'CONCLUIDO' %}
+                            <span class="badge bg-success">Concluído</span>
+                            {% elif arquivo.status == 'ERRO' %}
+                            <span class="badge bg-danger">Erro</span>
+                            {% elif arquivo.status == 'PROCESSANDO' %}
+                            <span class="badge bg-warning text-dark">Processando</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Pendente</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ arquivo.usuario.username }}</td>
+                        <td>{{ arquivo.registros_afetados|default:'-' }}</td>
+                        <td>{{ arquivo.tempo_processamento|floatformat:2|default:'-' }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center">Nenhum arquivo processado encontrado.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
-    
-    <!-- Resumo por tipo -->
-    <div class="row mb-4">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">Resumo por Tipo</h5>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Tipo</th>
-                                    <th>Total</th>
-                                    <th>Sucesso</th>
-                                    <th>Erro</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for tipo in resumo_tipo %}
-                                <tr>
-                                    <td>
-                                        {% for key, value in tipos_arquivo %}
-                                            {% if key == tipo.tipo_arquivo %}
-                                                {{ value }}
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-                                    <td>{{ tipo.total }}</td>
-                                    <td>{{ tipo.sucesso }}</td>
-                                    <td>{{ tipo.erro }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
+</div>
+
+<!-- Resumo por tipo -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Resumo por Tipo</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Tipo</th>
+                                <th>Total</th>
+                                <th>Sucesso</th>
+                                <th>Erro</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for tipo in resumo_tipo %}
+                            <tr>
+                                <td>
+                                    {% for key, value in tipos_arquivo %}
+                                        {% if key == tipo.tipo_arquivo %}
+                                            {{ value }}
+                                        {% endif %}
+                                    {% endfor %}
+                                </td>
+                                <td>{{ tipo.total }}</td>
+                                <td>{{ tipo.sucesso }}</td>
+                                <td>{{ tipo.erro }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>

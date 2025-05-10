@@ -5,40 +5,35 @@
 
 {% block content %}
 {{ block.super }}
-<div class="container">
-    <div class="row justify-content-center">
-        <div class="col-md-8 text-center">
-            <h1 class="display-5 mb-3">Bem-vindo ao BaseFusion</h1>
-            <p class="lead mb-4">Processador de Bases - Projeto Especial SPI</p>
-            
-            <div class="row mt-5">
-                <div class="col-md-4 mb-4">
-                    <div class="card h-100">
-                        <div class="card-body">
-                            <h5 class="card-title">Upload de Arquivos</h5>
-                            <p class="card-text">Faça upload de arquivos para processamento.</p>
-                            <a href="{% url 'upload_arquivos' %}" class="btn btn-primary">Acessar</a>
-                        </div>
+<div class="row justify-content-center">
+    <div class="col-md-8 text-center">
+        <h1 class="display-5 mb-3">Bem-vindo ao BaseFusion</h1>
+        <p class="lead mb-4">Processador de Bases - Projeto Especial SPI</p>
+        <div class="row mt-5">
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">Upload de Arquivos</h5>
+                        <p class="card-text">Faça upload de arquivos para processamento.</p>
+                        <a href="{% url 'upload_arquivos' %}" class="btn btn-primary">Acessar</a>
                     </div>
                 </div>
-                
-                <div class="col-md-4 mb-4">
-                    <div class="card h-100">
-                        <div class="card-body">
-                            <h5 class="card-title">Revisão</h5>
-                            <p class="card-text">Revise e gerencie pedidos pendentes.</p>
-                            <a href="{% url 'revisao' %}" class="btn btn-primary">Acessar</a>
-                        </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">Revisão</h5>
+                        <p class="card-text">Revise e gerencie pedidos pendentes.</p>
+                        <a href="{% url 'revisao' %}" class="btn btn-primary">Acessar</a>
                     </div>
                 </div>
-                
-                <div class="col-md-4 mb-4">
-                    <div class="card h-100">
-                        <div class="card-body">
-                            <h5 class="card-title">Arquivos Processados</h5>
-                            <p class="card-text">Visualize o histórico de arquivos processados.</p>
-                            <a href="{% url 'lista_arquivos' %}" class="btn btn-primary">Acessar</a>
-                        </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">Arquivos Processados</h5>
+                        <p class="card-text">Visualize o histórico de arquivos processados.</p>
+                        <a href="{% url 'lista_arquivos' %}" class="btn btn-primary">Acessar</a>
                     </div>
                 </div>
             </div>
